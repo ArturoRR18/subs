@@ -2,9 +2,9 @@
 """Revisor de subtitulos para Jellyfin.
 
 Uso:
-  python jellyfin_subs.py                 # revisa CARPETA_ENTRADA (de RUTAS.txt) en modo simulacion
-  python jellyfin_subs.py --aplicar       # ejecuta: renombra, crea carpetas y mueve a REV_SUBTITULOS
-  python jellyfin_subs.py --carpeta "C:\\ruta" [--aplicar] [--descargar]
+  py jellyfin_subs.py                 # revisa CARPETA_ENTRADA (de RUTAS.txt) en modo simulacion
+  py jellyfin_subs.py --aplicar       # ejecuta: renombra, crea carpetas y mueve a REV_SUBTITULOS
+  py jellyfin_subs.py --carpeta "C:\\ruta" [--aplicar] [--descargar]
 
 Flujo por cada video:
   1. Busca subtitulos externos que le correspondan (mismo nombre, mismo episodio,

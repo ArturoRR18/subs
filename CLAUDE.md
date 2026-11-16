@@ -12,10 +12,10 @@ Cuando yo escriba **"iniciar proceso"** (o `/iniciar-proceso`), delega en el
 subagente `revisor-subtitulos` (`.claude/agents/revisor-subtitulos.md`), que hace:
 
 1. Lee `CARPETA_ENTRADA` de `RUTAS.txt` (si escribo otra ruta, usa esa con `--carpeta`).
-2. Simulación: `python jellyfin_subs.py` → revisa el reporte.
+2. Simulación: `py jellyfin_subs.py` → revisa el reporte.
 3. Si hay videos sin subtítulo válido y `subliminal` está instalado:
-   `python jellyfin_subs.py --descargar` (latino primero, luego español) y vuelve a simular.
-4. Aplica: `python jellyfin_subs.py --aplicar` (no hace falta pedirme luz verde).
+   `py jellyfin_subs.py --descargar` (latino primero, luego español) y vuelve a simular.
+4. Aplica: `py jellyfin_subs.py --aplicar` (no hace falta pedirme luz verde).
 5. Me entrega el resumen: cuántos pasaron a `REV_SUBTITULOS`, y la lista de
    `SIN_SUBTITULOS.txt` con el motivo de cada uno.
 
@@ -43,7 +43,10 @@ subagente `revisor-subtitulos` (`.claude/agents/revisor-subtitulos.md`), que hac
 ## Requisitos
 - Python 3.10+
 - `ffprobe` (viene con FFmpeg) — en el PATH o en `FFPROBE` de `RUTAS.txt`.
-- Opcional para descargar: `pip install subliminal`
+- Opcional para descargar: `py -m pip install subliminal`
+- **Usa siempre `py`, no `python`:** el lanzador `py` elige el Python instalado
+  aunque otro programa (p. ej. Inkscape) meta su propio `python.exe` en el PATH
+  del sistema, que no maneja bien las rutas de red del NAS.
 
 ## Comando: "nueva computadora"
 Cuando yo escriba **"nueva computadora"**, o al arrancar en un equipo donde el
@@ -51,10 +54,10 @@ repo se acaba de clonar (falta RUTAS.txt), guíame por este checklist:
 
 1. Clonar el repo (si no está clonado ya): `git clone <URL-DEL-REPO>`
 2. Confirmar que la carpeta de videos (Escritorio/NAS) existe y ya sincronizó en esta máquina.
-3. Completar RUTAS.txt de esta máquina: `python validar_rutas.py` (o doble clic
+3. Completar RUTAS.txt de esta máquina: `py validar_rutas.py` (o doble clic
    en `validar_rutas.bat`) — abre selector gráfico para cada ruta faltante.
 4. Verificar con "revisar rutas" (Test-Path de cada clave).
-5. Prueba: `python jellyfin_subs.py` (simulación) para confirmar que el equipo funciona.
+5. Prueba: `py jellyfin_subs.py` (simulación) para confirmar que el equipo funciona.
 
 No hace falta pedirme luz verde para los pasos 2-5 una vez que confirme el clone.
 

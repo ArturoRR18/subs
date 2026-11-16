@@ -1,4 +1,4 @@
-# Rutas de ESTA maquina (copia como RUTAS.txt o corre: python validar_rutas.py)
+# Rutas de ESTA maquina (copia como RUTAS.txt o corre: py validar_rutas.py)
 # Formato CLAVE=valor, una por linea. RUTAS.txt NO se sube a git.
 
 # Carpeta donde dejas los videos y subtitulos a revisar

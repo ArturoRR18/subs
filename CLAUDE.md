@@ -34,6 +34,16 @@ subagente `revisor-subtitulos` (`.claude/agents/revisor-subtitulos.md`), que hac
 - **Sufijo de idioma `.spa`:** Jellyfin solo reconoce códigos ISO 639 (`es`/`spa`).
   Un código como `es-419` no lo reconoce y toma todo el sufijo como título, así
   que latino y castellano se guardan ambos como `.spa` (el reporte indica cuál es).
+- **Rescate** de subs en español que fallan por tiempos (solo `.srt`):
+  1. reacomoda líneas con horas rotas (malformadas, que retroceden o pasan del
+     final) entre el diálogo anterior y el siguiente — solo si es ≤10 % del
+     archivo; los tiempos quedan aproximados y el reporte lo indica;
+  2. si no basta, `ffsubsync` lo alinea con el audio (cache en el temp del sistema).
+  - Siempre quita marcas `[cite: N]` de generadores automáticos.
+- **Descarga** (`--descargar`): baja hasta 4 candidatos por video (latino primero)
+  de OpenSubtitles.com (si hay `OPENSUBTITLES_USUARIO`/`CLAVE` en `RUTAS.txt`),
+  Subtitulamos, Subtis, Podnapisi, Gestdown, Addic7ed, TVsubtitles y BSPlayer.
+  Subdivx bloquea el acceso automatizado, no se usa.
 - Los subtítulos se guardan en **UTF-8** (convierte cp1252/latin-1 para que se
   vean bien acentos y ñ).
 - **Nunca sobrescribe:** si el destino ya existe, se detiene y avisa.
@@ -44,6 +54,7 @@ subagente `revisor-subtitulos` (`.claude/agents/revisor-subtitulos.md`), que hac
 - Python 3.10+
 - `ffprobe` (viene con FFmpeg) — en el PATH o en `FFPROBE` de `RUTAS.txt`.
 - Opcional para descargar: `py -m pip install subliminal`
+- Opcional para sincronizar: `py -m pip install ffsubsync` (usa `ffmpeg` del PATH)
 - **Usa siempre `py`, no `python`:** el lanzador `py` elige el Python instalado
   aunque otro programa (p. ej. Inkscape) meta su propio `python.exe` en el PATH
   del sistema, que no maneja bien las rutas de red del NAS.

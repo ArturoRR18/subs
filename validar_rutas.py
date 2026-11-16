@@ -17,6 +17,7 @@ RAIZ = Path(__file__).resolve().parent
 RUTAS_TXT = RAIZ / "RUTAS.txt"
 RUTAS_EXAMPLE = RAIZ / "RUTAS.txt.example"
 OPCIONALES_EN_PATH = {"FFPROBE": "ffprobe"}
+NO_SON_RUTAS = {"OPENSUBTITLES_USUARIO", "OPENSUBTITLES_CLAVE"}  # credenciales opcionales
 
 
 def elegir(clave: str, actual: str) -> str | None:
@@ -56,6 +57,9 @@ def main() -> int:
             continue
         clave, valor = (x.strip() for x in s.split("=", 1))
         valor = valor.strip('"')
+        if clave in NO_SON_RUTAS:
+            print(f"[OK] {clave}: {'configurado' if valor else 'vacio (opcional)'}")
+            continue
         if not valor and clave in OPCIONALES_EN_PATH and shutil.which(OPCIONALES_EN_PATH[clave]):
             print(f"[OK] {clave}: en el PATH")
             continue

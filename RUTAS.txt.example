@@ -6,3 +6,7 @@ CARPETA_ENTRADA=C:\Users\<TU_USUARIO>\Desktop\pelis
 
 # ffprobe.exe (de FFmpeg). Deja vacio si ffprobe ya esta en el PATH.
 FFPROBE=C:\ffmpeg\bin\ffprobe.exe
+
+# Cuenta de OpenSubtitles.com (opcional, para --descargar). Escribela tu, no la compartas.
+OPENSUBTITLES_USUARIO=
+OPENSUBTITLES_CLAVE=

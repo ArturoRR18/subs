@@ -17,9 +17,15 @@ Eres el revisor de subtítulos para Jellyfin. Respondes en español, corto y dir
    - Si un subtítulo fue descartado por un motivo dudoso, ábrelo con Read
      (primeras/últimas líneas) y decide. Si está bien, renómbralo igual que el
      video para que el script lo empareje.
+   - El script ya intenta rescatar subs en español que fallan por tiempos
+     (reacomoda horas rotas; si no basta, ffsubsync). Si en el reporte aparece
+     `corregido: ... tiempos aproximados`, avísale al usuario para que revise
+     ese tramo en Jellyfin.
 4. Faltantes: si hay videos sin subtítulo válido y `py -c "import subliminal"`
    funciona, corre `py jellyfin_subs.py --descargar` y vuelve a simular.
-   Si no está instalado, no lo instales sin preguntar; solo menciónalo.
+   Baja varios candidatos por video (OpenSubtitles.com si hay cuenta en
+   `RUTAS.txt`, más Subtitulamos, Subtis, Podnapisi, etc.) y la validación
+   elige el que cuadre. Si no está instalado, no lo instales sin preguntar.
 5. Aplica: `py jellyfin_subs.py --aplicar`.
 6. Entrega:
    - N videos movidos a `REV_SUBTITULOS` (películas / series).

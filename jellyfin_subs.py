@@ -11,17 +11,22 @@ Flujo por cada video:
      o unico video de la carpeta) y subtitulos internos (pistas del .mkv).
   2. Valida cada subtitulo: legible, en espanol (latino preferido), y que su
      duracion cuadre con la del video (ffprobe).
-  3. Valido  -> lo mueve a REV_SUBTITULOS con estructura y nombres de Jellyfin.
+  3. Si un subtitulo en espanol falla por tiempos, intenta rescatarlo: reacomoda
+     las lineas con horas imposibles y, si no basta, lo sincroniza con ffsubsync.
+  4. Valido  -> lo mueve a REV_SUBTITULOS con estructura y nombres de Jellyfin.
      Invalido -> lo deja donde esta y lo agrega a SIN_SUBTITULOS.txt.
 """
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import logging
 import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import unicodedata
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -43,6 +48,15 @@ SUFIJO_IDIOMA = "spa"
 MARGEN_FINAL_SEG = 180        # el sub puede terminar hasta 3 min despues del video
 MIN_COBERTURA = 0.60          # el ultimo dialogo debe llegar al menos al 60% del video
 MIN_DIALOGOS_POR_HORA = 150
+
+# Rescate de subtitulos con tiempos rotos
+MAX_LINEAS_ROTAS = 0.10       # si mas del 10% esta roto no se reacomoda (es otra version -> ffsubsync)
+CACHE_SYNC = Path(tempfile.gettempdir()) / "jellyfin_subs_sync"
+
+# Proveedores de subliminal (subtitulamos y subtis son de habla hispana).
+# opensubtitlescom se agrega si hay usuario/clave en RUTAS.txt.
+PROVEEDORES = ["podnapisi", "gestdown", "addic7ed", "tvsubtitles", "bsplayer", "subtitulamos", "subtis"]
+DESCARGAS_POR_VIDEO = 4       # baja varios por si el mejor puntuado viene roto
 
 # --------------------------------------------------------------------------- utilidades
 
@@ -188,6 +202,12 @@ class Sub:
     valido: bool = False
     motivo: str = ""
     puntaje: float = 0.0
+    texto: str | None = None   # contenido corregido a escribir en destino (None = copiar el original)
+    nota: str = ""             # que se le corrigio
+
+
+# marcas que dejan algunos generadores automaticos: "[cite: 2]", "[cite_start]"
+RE_CITA = re.compile(r"[ \t]*\[cite(?:_start|_end)?(?::[^\]\n]*)?\]")
 
 
 def leer_texto(p: Path) -> tuple[str, str]:
@@ -210,10 +230,16 @@ def analizar_sub(p: Path) -> Sub:
     except OSError as e:
         s.motivo = f"no se pudo leer: {e}"
         return s
+    if RE_CITA.search(texto):
+        texto = RE_CITA.sub("", texto)
+        s.texto, s.nota = texto, "se quitaron marcas [cite]"
+    medir_sub(s, texto, p.suffix.lower())
+    return s
 
+
+def medir_sub(s: Sub, texto: str, ext: str) -> None:
     tiempos: list[tuple[float, float]] = []
     lineas_texto: list[str] = []
-    ext = p.suffix.lower()
     if ext in (".ass", ".ssa"):
         for m in RE_ASS.finditer(texto):
             g = [int(x) for x in m.groups()[:8]]
@@ -230,11 +256,10 @@ def analizar_sub(p: Path) -> Sub:
     s.dialogos = len(tiempos)
     if not tiempos:
         s.motivo = "no tiene dialogos con tiempos validos (archivo vacio o corrupto)"
-        return s
+        return
     s.inicio = min(t[0] for t in tiempos)
     s.fin = max(t[1] for t in tiempos)
     s.idioma = detectar_idioma(" ".join(lineas_texto))
-    return s
 
 
 def detectar_idioma(texto: str) -> str:
@@ -299,6 +324,132 @@ def validar_contra_video(s: Sub, duracion: float | None) -> None:
 def fmt(seg: float) -> str:
     seg = int(seg)
     return f"{seg // 3600}:{seg % 3600 // 60:02d}:{seg % 60:02d}"
+
+
+# --------------------------------------------------------------------------- rescate
+
+RE_TIEMPO = re.compile(r"^\s*(?:(\d{1,2}):)?(\d{1,2}):(\d{2})[,.](\d{1,3})\s*$")
+
+
+def a_seg(t: str) -> float | None:
+    m = RE_TIEMPO.match(t)
+    if not m:
+        return None
+    h, mi, se, ms = (int(x) if x else 0 for x in m.groups())
+    return h * 3600 + mi * 60 + se + ms / 10 ** len(m.group(4))
+
+
+def fmt_srt(seg: float) -> str:
+    ms = round(seg * 1000)
+    return f"{ms // 3600000:02d}:{ms % 3600000 // 60000:02d}:{ms % 60000 // 1000:02d},{ms % 1000:03d}"
+
+
+def reacomodar_srt(texto: str, duracion: float) -> tuple[str, int] | None:
+    """Reparte las lineas con horas imposibles (malformadas, que retroceden o pasan
+    del final del video) entre el dialogo bueno anterior y el siguiente.
+    Los tiempos resultantes son aproximados. None si no hay nada que corregir
+    o si hay demasiado roto (seria otra version del video)."""
+    bloques: list[list] = []   # [inicio, fin, lineas_de_texto]
+    for b in re.split(r"\n\s*\n", texto.replace("\r\n", "\n").strip()):
+        lineas = b.split("\n")
+        i = next((k for k, l in enumerate(lineas) if "-->" in l), None)
+        if i is None:
+            if bloques:
+                bloques[-1][2].extend(lineas)
+            continue
+        a, _, z = lineas[i].partition("-->")
+        bloques.append([a_seg(a), a_seg(z), lineas[i + 1:]])
+    if not bloques:
+        return None
+
+    rotos, ultimo_fin = [], 0.0
+    for k, (ini, fin, _) in enumerate(bloques):
+        if ini is None or fin is None or fin < ini or ini < ultimo_fin - 1 or fin > duracion:
+            rotos.append(k)
+        else:
+            ultimo_fin = fin
+    if not rotos or len(rotos) > max(3, len(bloques) * MAX_LINEAS_ROTAS):
+        return None
+
+    rotos_set = set(rotos)
+    k = 0
+    while k < len(bloques):
+        if k not in rotos_set:
+            k += 1
+            continue
+        j = k
+        while j + 1 < len(bloques) and j + 1 in rotos_set:
+            j += 1
+        desde = bloques[k - 1][1] + 0.2 if k > 0 else 0.0
+        hasta = bloques[j + 1][0] - 0.2 if j + 1 < len(bloques) else duracion - 0.5
+        n = j - k + 1
+        if hasta - desde < n:      # no caben ni a 1 s por linea
+            return None
+        pesos = [max(len(" ".join(bloques[x][2])), 10) for x in range(k, j + 1)]
+        total, t = sum(pesos), desde
+        for x, w in zip(range(k, j + 1), pesos):
+            ranura = (hasta - desde) * w / total
+            bloques[x][0], bloques[x][1] = t, t + min(ranura - 0.1, 6.0)
+            t += ranura
+        k = j + 1
+
+    salida = [f"{n}\n{fmt_srt(ini)} --> {fmt_srt(fin)}\n" + "\n".join(lin)
+              for n, (ini, fin, lin) in enumerate(bloques, 1)]
+    return "\n\n".join(salida) + "\n", len(rotos)
+
+
+def sincronizar(video: Path, sub: Path) -> str | None:
+    """Alinea el subtitulo con el audio del video usando ffsubsync (con cache)."""
+    try:
+        import ffsubsync  # noqa: F401
+    except ImportError:
+        return None
+    st = sub.stat()
+    clave = hashlib.sha1(f"{video}|{sub}|{st.st_size}|{st.st_mtime}".encode()).hexdigest()
+    salida = CACHE_SYNC / f"{clave}.srt"
+    if not salida.exists():
+        CACHE_SYNC.mkdir(parents=True, exist_ok=True)
+        print(f"Sincronizando con ffsubsync: {sub.name} ...", file=sys.stderr)
+        try:
+            subprocess.run([sys.executable, "-m", "ffsubsync.ffsubsync", str(video), "-i", str(sub), "-o", str(salida)],
+                           capture_output=True, timeout=1800)
+        except (OSError, subprocess.TimeoutExpired):
+            return None
+        if not salida.exists():
+            return None
+    return leer_texto(salida)[0]
+
+
+def rescatar(s: Sub, video: Path, duracion: float | None) -> None:
+    """Si un sub en espanol fallo por tiempos, intenta reacomodarlo o sincronizarlo."""
+    if s.valido or not duracion or not s.ruta or s.ruta.suffix.lower() != ".srt":
+        return
+    if s.idioma not in ("es", "es-419") or not s.motivo.startswith(("termina en", "el primer dialogo")):
+        return
+    base = s.texto if s.texto is not None else leer_texto(s.ruta)[0]
+    nota_previa = s.nota + "; " if s.nota else ""
+
+    def intentos():   # de mas barato a mas caro; ffsubsync solo corre si lo anterior no basto
+        r = reacomodar_srt(base, duracion)
+        if r:
+            yield r[0], f"{r[1]} lineas con horas rotas reacomodadas (tiempos aproximados, revisar)"
+        sinc = sincronizar(video, s.ruta)
+        if sinc is not None:
+            yield RE_CITA.sub("", sinc), "sincronizado con el audio (ffsubsync)"
+
+    fallidos = []
+    for texto, nota in intentos():
+        prueba = Sub(ruta=s.ruta, codificacion=s.codificacion)
+        medir_sub(prueba, texto, ".srt")
+        validar_contra_video(prueba, duracion)
+        if prueba.valido:
+            s.texto, s.nota = texto, nota_previa + nota
+            s.dialogos, s.inicio, s.fin, s.idioma = prueba.dialogos, prueba.inicio, prueba.fin, prueba.idioma
+            s.valido, s.puntaje, s.motivo = True, prueba.puntaje - 0.3, ""   # prefiere uno que no requirio arreglo
+            return
+        fallidos.append(nota.split(" (")[0])
+    if fallidos:
+        s.motivo += " | rescate fallido: " + ", ".join(fallidos)
 
 
 # --------------------------------------------------------------------------- video
@@ -415,6 +566,7 @@ def procesar(entrada: Path, aplicar: bool, ff: str | None) -> list[Resultado]:
                 if pista_nombre == "en" and s.idioma != "es" and s.idioma != "es-419":
                     s.idioma = "en"
                 validar_contra_video(s, dur)
+                rescatar(s, v, dur)
                 evaluados.append(s)
             evaluados += internos
             validos = sorted([s for s in evaluados if s.valido], key=lambda s: -s.puntaje)
@@ -444,8 +596,13 @@ def mover(r: Resultado) -> None:
         raise FileExistsError(f"Ya existe {r.destino_video}; no se sobrescribe.")
     shutil.move(str(r.video), str(r.destino_video))
     if r.destino_sub and r.elegido and r.elegido.ruta:
+        if r.destino_sub.exists():
+            raise FileExistsError(f"Ya existe {r.destino_sub}; no se sobrescribe.")
         texto, enc = leer_texto(r.elegido.ruta)
-        if enc in ("utf-8-sig", "utf-8"):
+        if r.elegido.texto is not None:  # corregido (marcas, tiempos o sincronia)
+            r.destino_sub.write_text(r.elegido.texto, encoding="utf-8")
+            r.elegido.ruta.unlink()
+        elif enc in ("utf-8-sig", "utf-8"):
             shutil.move(str(r.elegido.ruta), str(r.destino_sub))
         else:  # Jellyfin necesita UTF-8 para mostrar bien acentos y enes
             r.destino_sub.write_text(texto, encoding="utf-8")
@@ -466,6 +623,8 @@ def reporte(entrada: Path, resultados: list[Resultado], aplicar: bool) -> str:
             origen = f"interno pista {e.pista}" if e.interno else e.ruta.name
             L.append(f"[OK] {r.video.name}")
             L.append(f"     sub: {origen} ({e.idioma}{', ' + e.codificacion if e.codificacion else ''})")
+            if e.nota:
+                L.append(f"     corregido: {e.nota}")
             L.append(f"     ->  {r.destino_video.relative_to(entrada)}")
             if r.destino_sub:
                 L.append(f"     ->  {r.destino_sub.relative_to(entrada)}")
@@ -483,27 +642,55 @@ def reporte(entrada: Path, resultados: list[Resultado], aplicar: bool) -> str:
 
 # --------------------------------------------------------------------------- descarga opcional
 
-def descargar(resultados: list[Resultado]) -> None:
-    """Intenta bajar subtitulos (latino primero) con subliminal para los videos sin sub."""
+def descargar(resultados: list[Resultado], rutas: dict[str, str]) -> None:
+    """Baja varios subtitulos en espanol (latino primero) para los videos sin sub valido.
+    Se guardan todos junto al video y la validacion posterior elige el que cuadre."""
     try:
         from babelfish import Language
-        from subliminal import download_best_subtitles, save_subtitles, scan_video
+        from subliminal import compute_score, download_subtitles, list_subtitles, region, scan_video
     except ImportError:
-        print("subliminal no esta instalado: pip install subliminal  (descarga omitida)")
+        print("subliminal no esta instalado: py -m pip install subliminal  (descarga omitida)")
         return
+    if not region.is_configured:   # varios proveedores fallan si no hay cache
+        region.configure("dogpile.cache.memory")
+    logging.getLogger("subliminal").setLevel(logging.CRITICAL)   # un proveedor caido no es error nuestro
+    proveedores, configs = list(PROVEEDORES), {}
+    usuario, clave = rutas.get("OPENSUBTITLES_USUARIO"), rutas.get("OPENSUBTITLES_CLAVE")
+    if usuario and clave:
+        proveedores.insert(0, "opensubtitlescom")
+        configs["opensubtitlescom"] = {"username": usuario, "password": clave}
+    else:
+        print("AVISO: sin OPENSUBTITLES_USUARIO/CLAVE en RUTAS.txt; se omite OpenSubtitles.com")
+    idiomas = {Language("spa", "MX"), Language("spa")}
+
     for r in resultados:
         if r.elegido:
             continue
         try:
             vid = scan_video(str(r.video))
-            for lang in (Language("spa", "MX"), Language("spa")):
-                subs = download_best_subtitles([vid], {lang}).get(vid, [])
-                if subs:
-                    save_subtitles(vid, subs[:1], single=False)
-                    print(f"Descargado ({lang}): {r.video.name}")
-                    break
-            else:
+            encontrados = list_subtitles({vid}, idiomas, providers=proveedores, provider_configs=configs).get(vid, [])
+            if not encontrados:
                 print(f"Sin resultados en linea: {r.video.name}")
+                continue
+            # latino primero, luego por puntaje de coincidencia con el video
+            encontrados.sort(key=lambda s: (s.language.country is not None, compute_score(s, vid)), reverse=True)
+            elegidos = encontrados[:DESCARGAS_POR_VIDEO]
+            download_subtitles(elegidos, providers=proveedores, provider_configs=configs)
+            existentes = {hashlib.sha1(p.read_bytes()).digest() for p in r.video.parent.iterdir()
+                          if p.suffix.lower() in SUB_EXT}
+            guardados = 0
+            for n, s in enumerate(elegidos, 1):
+                if not s.content or hashlib.sha1(s.content).digest() in existentes:
+                    continue   # vacio o identico a uno que ya esta
+                ext = "." + (getattr(s, "subtitle_format", None) or "srt")
+                tag = "es-MX" if s.language.country else "es"
+                destino = r.video.with_name(f"{r.video.stem}.{s.provider_name}{n}.{tag}{ext}")
+                if destino.exists():
+                    continue
+                destino.write_bytes(s.content)
+                existentes.add(hashlib.sha1(s.content).digest())
+                guardados += 1
+            print(f"Descargados {guardados} de {len(encontrados)} encontrados: {r.video.name}")
         except Exception as e:  # noqa: BLE001 - un fallo de red no debe detener el lote
             print(f"Error descargando {r.video.name}: {e}")
 
@@ -532,7 +719,7 @@ def main() -> int:
         print("AVISO: ffprobe no encontrado; no se podra comparar la duracion sub vs video.")
 
     if a.descargar:
-        descargar(procesar(entrada, False, ff))
+        descargar(procesar(entrada, False, ff), rutas)
     resultados = procesar(entrada, a.aplicar, ff)
     texto = reporte(entrada, resultados, a.aplicar)
 

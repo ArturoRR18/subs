@@ -1,0 +1,30 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "bash",
+            "timeout": 30,
+            "statusMessage": "Sincronizando con GitHub (git pull)...",
+            "command": "cd \"$(git rev-parse --show-toplevel 2>/dev/null || pwd)\" || exit 0\ngit fetch origin >/tmp/proj-fetch.log 2>&1\nif [ $? -ne 0 ]; then\n  msg=\"ATENCION: no se pudo hacer git fetch (revisa conexion/GitHub).\"\n  printf '{\"systemMessage\": \"%s\"}' \"$msg\"\n  exit 0\nfi\nbranch=$(git rev-parse --abbrev-ref HEAD)\nbehind=$(git rev-list --count \"HEAD..origin/$branch\" 2>/dev/null || echo 0)\nif [ \"$behind\" = \"0\" ]; then\n  msg=\"Repo al dia con GitHub.\"\nelse\n  if git pull --ff-only origin \"$branch\" >/tmp/proj-pull.log 2>&1; then\n    msg=\"Repo actualizado: $behind commit(s) nuevo(s) traidos de GitHub.\"\n  else\n    msg=\"ATENCION: hay $behind commit(s) nuevo(s) en GitHub pero el pull automatico fallo (posible conflicto con cambios locales sin commitear). Revisa manualmente antes de trabajar.\"\n  fi\nfi\nprintf '{\"systemMessage\": \"%s\", \"hookSpecificOutput\": {\"hookEventName\": \"SessionStart\", \"additionalContext\": \"%s\"}}' \"$msg\" \"$msg\"\n"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "bash",
+            "timeout": 30,
+            "statusMessage": "Subiendo commits a GitHub (git push)...",
+            "command": "cd \"$(git rev-parse --show-toplevel 2>/dev/null || pwd)\" || exit 0\nbranch=$(git rev-parse --abbrev-ref HEAD)\nahead=$(git rev-list --count \"origin/$branch..HEAD\" 2>/dev/null || echo 0)\nif [ -n \"$ahead\" ] && [ \"$ahead\" != \"0\" ]; then\n  if git push origin HEAD >/tmp/proj-push.log 2>&1; then\n    msg=\"Auto-push: $ahead commit(s) subidos a GitHub.\"\n  else\n    msg=\"ATENCION: hay $ahead commit(s) locales sin subir y el auto-push fallo (revisa conexion/credenciales). Corre git push manual.\"\n  fi\n  printf '{\"systemMessage\": \"%s\"}' \"$msg\"\nfi\n"
+          }
+        ]
+      }
+    ]
+  }
+}

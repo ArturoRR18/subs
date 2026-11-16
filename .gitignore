@@ -1,0 +1,22 @@
+RUTAS.txt
+.claude/settings.local.json
+CLAUDE.local.md
+__pycache__/
+*.bak
+
+# Nunca subir medios
+*.mkv
+*.mp4
+*.avi
+*.m4v
+*.mov
+*.wmv
+*.ts
+*.webm
+*.srt
+*.ass
+*.ssa
+*.vtt
+*.sub
+REV_SUBTITULOS/
+SIN_SUBTITULOS.txt

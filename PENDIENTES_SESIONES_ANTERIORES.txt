@@ -1,0 +1,46 @@
+PENDIENTES DE SESIONES ANTERIORES
+=================================
+Ultima actualizacion: 2026-11-16
+
+HECHO EN LA SESION DEL 2026-11-16
+---------------------------------
+- Avatar Seven Havens S01 (13 episodios) organizada, en la biblioteca y verificada
+  en Jellyfin: los 13 tienen subtitulo externo en espanol.
+  * E01: las ultimas 11 lineas tienen tiempos APROXIMADOS (estaban rotos). Revisar el
+    ultimo minuto en Jellyfin.
+  * E02: subtitulo en castellano (de OpenSubtitles.com); no habia latino.
+- Repo conectado a GitHub (ArturoRR18/subs). El proyecto usa "py" en vez de "python".
+- Fase 1: rescate de subtitulos (reacomoda horas rotas + ffsubsync) y limpieza de [cite: N].
+- Fase 2: descarga de varios candidatos por video; OpenSubtitles.com con cuenta,
+  Subtitulamos, Subtis, Addic7ed, BSPlayer, etc. (Subdivx bloquea acceso automatico).
+- verificar_jellyfin.py: confirma por la API de Jellyfin que cada video tiene sub/audio
+  en espanol (comando "verificar jellyfin").
+- Validacion con ffmpeg: descarta .srt que Jellyfin no podria leer completo.
+
+PENDIENTES
+----------
+1. FASE 3 - Generar subtitulos con Whisper (en la PC con NVIDIA GTX 1060 6GB)
+   - Clonar el repo en esa PC y escribir "nueva computadora" en Claude Code.
+   - Instalar faster-whisper (modelo large-v3-turbo, ~1-2 min por episodio con GPU).
+   - Si el audio es espanol: transcribir directo.
+   - Si el audio es ingles: transcribir y traducir a espanol latino (definir con que).
+   - Guardar como .spa.srt y marcarlo "generado" en el reporte; solo con --generar.
+
+2. Biblioteca actual de Jellyfin: 171 de 236 videos sin sub ni audio en espanol
+   (segun "py verificar_jellyfin.py").
+   - ~129 peliculas (muchas YTS/YIFY): revisar si ya tienen .srt con nombre que
+     Jellyfin no reconoce (mismo problema que tuvo Avatar con "-ESP.srt") y pasarlas
+     por el proceso.
+   - 42 episodios de "Avatar La leyenda de Aang": probablemente doblados pero sin
+     etiqueta de idioma en el audio. Ademas la biblioteca "Series" no tiene tipo de
+     contenido asignado (Jellyfin los trata como peliculas). Revisar/corregir.
+
+3. Fase 4 (opcional): convertir el flujo en una skill de Claude cuando este estable.
+
+RECORDATORIOS
+-------------
+- En cada computadora nueva: RUTAS.txt no se sube a git. Volver a escribir ahi
+  OPENSUBTITLES_USUARIO/CLAVE, JELLYFIN_URL y JELLYFIN_API_KEY.
+- Clonar:  git clone https://github.com/ArturoRR18/subs.git 3.-SUBS
+           cd 3.-SUBS
+           py -m pip install subliminal ffsubsync

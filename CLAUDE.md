@@ -19,6 +19,14 @@ subagente `revisor-subtitulos` (`.claude/agents/revisor-subtitulos.md`), que hac
 5. Me entrega el resumen: cuántos pasaron a `REV_SUBTITULOS`, y la lista de
    `SIN_SUBTITULOS.txt` con el motivo de cada uno.
 
+## Comando: "verificar jellyfin"
+Después de mover `REV_SUBTITULOS` a la biblioteca: `py verificar_jellyfin.py --escanear
+[--buscar "<titulo>"]`. Le pregunta a Jellyfin (API, `JELLYFIN_URL` + `JELLYFIN_API_KEY`
+en `RUTAS.txt`) qué subtítulos detectó por película/episodio. Si sale `[OK] sub externo`,
+Jellyfin ya lo leyó y aparece en el menú — no hace falta probarlos uno a uno. Un video
+con audio en español también cuenta como OK. Ojo: Jellyfin muestra el título traducido
+(ej. "Avatar: Los Siete Refugios"); `--buscar` también busca en la ruta.
+
 ## Reglas del proceso
 - **Idioma:** prioridad `es-419` (latino) > `es` (castellano). Inglés u otro idioma = no válido.
 - **Válido contra el video** (lo compara con la duración de `ffprobe`):

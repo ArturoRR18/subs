@@ -10,3 +10,7 @@ FFPROBE=C:\ffmpeg\bin\ffprobe.exe
 # Cuenta de OpenSubtitles.com (opcional, para --descargar). Escribela tu, no la compartas.
 OPENSUBTITLES_USUARIO=
 OPENSUBTITLES_CLAVE=
+
+# Jellyfin (para verificar_jellyfin.py). Clave: Panel de control > Claves de API.
+JELLYFIN_URL=http://<IP-DEL-NAS>:<PUERTO>
+JELLYFIN_API_KEY=

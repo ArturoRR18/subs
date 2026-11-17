@@ -420,6 +420,30 @@ def sincronizar(video: Path, sub: Path) -> str | None:
     return leer_texto(salida)[0]
 
 
+def ffmpeg_lee(s: Sub, ff: str | None) -> None:
+    """Jellyfin convierte los .srt con ffmpeg; si ffmpeg no lee todos los dialogos,
+    el sub saldria en el menu pero vacio o cortado."""
+    if not s.valido or not s.ruta or s.ruta.suffix.lower() != ".srt":
+        return
+    ffmpeg = shutil.which("ffmpeg") or (str(Path(ff).with_name("ffmpeg.exe")) if ff else None)
+    if not ffmpeg or not Path(ffmpeg).exists() and not shutil.which(ffmpeg):
+        return
+    texto = s.texto if s.texto is not None else leer_texto(s.ruta)[0]
+    with tempfile.NamedTemporaryFile("w", suffix=".srt", encoding="utf-8", delete=False) as tmp:
+        tmp.write(texto)
+    try:
+        r = subprocess.run([ffmpeg, "-v", "error", "-i", tmp.name, "-f", "webvtt", "-"],
+                           capture_output=True, timeout=60)
+        leidos = r.stdout.count(b"-->")
+    except (OSError, subprocess.TimeoutExpired):
+        return
+    finally:
+        Path(tmp.name).unlink(missing_ok=True)
+    if leidos < s.dialogos * 0.98:
+        s.valido = False
+        s.motivo = f"ffmpeg (lo que usa Jellyfin) solo lee {leidos} de {s.dialogos} dialogos (formato roto)"
+
+
 def rescatar(s: Sub, video: Path, duracion: float | None) -> None:
     """Si un sub en espanol fallo por tiempos, intenta reacomodarlo o sincronizarlo."""
     if s.valido or not duracion or not s.ruta or s.ruta.suffix.lower() != ".srt":
@@ -567,6 +591,7 @@ def procesar(entrada: Path, aplicar: bool, ff: str | None) -> list[Resultado]:
                     s.idioma = "en"
                 validar_contra_video(s, dur)
                 rescatar(s, v, dur)
+                ffmpeg_lee(s, ff)
                 evaluados.append(s)
             evaluados += internos
             validos = sorted([s for s in evaluados if s.valido], key=lambda s: -s.puntaje)

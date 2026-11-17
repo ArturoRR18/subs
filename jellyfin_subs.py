@@ -678,10 +678,13 @@ def descargar(resultados: list[Resultado], rutas: dict[str, str]) -> None:
             download_subtitles(elegidos, providers=proveedores, provider_configs=configs)
             existentes = {hashlib.sha1(p.read_bytes()).digest() for p in r.video.parent.iterdir()
                           if p.suffix.lower() in SUB_EXT}
-            guardados = 0
+            guardados = fallidos = 0
             for n, s in enumerate(elegidos, 1):
-                if not s.content or hashlib.sha1(s.content).digest() in existentes:
-                    continue   # vacio o identico a uno que ya esta
+                if not s.content:
+                    fallidos += 1   # el proveedor fallo al bajarlo (red, limite diario, etc.)
+                    continue
+                if hashlib.sha1(s.content).digest() in existentes:
+                    continue   # identico a uno que ya esta
                 ext = "." + (getattr(s, "subtitle_format", None) or "srt")
                 tag = "es-MX" if s.language.country else "es"
                 destino = r.video.with_name(f"{r.video.stem}.{s.provider_name}{n}.{tag}{ext}")
@@ -690,7 +693,8 @@ def descargar(resultados: list[Resultado], rutas: dict[str, str]) -> None:
                 destino.write_bytes(s.content)
                 existentes.add(hashlib.sha1(s.content).digest())
                 guardados += 1
-            print(f"Descargados {guardados} de {len(encontrados)} encontrados: {r.video.name}")
+            aviso = f" ({fallidos} fallaron al bajar; reintenta mas tarde)" if fallidos else ""
+            print(f"Descargados {guardados} de {len(encontrados)} encontrados{aviso}: {r.video.name}")
         except Exception as e:  # noqa: BLE001 - un fallo de red no debe detener el lote
             print(f"Error descargando {r.video.name}: {e}")
 

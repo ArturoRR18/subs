@@ -1,6 +1,6 @@
 PENDIENTES DE SESIONES ANTERIORES
 =================================
-Ultima actualizacion: 2026-11-16
+Ultima actualizacion: 2026-11-23
 
 HECHO EN LA SESION DEL 2026-11-16
 ---------------------------------
@@ -26,14 +26,19 @@ PENDIENTES
    - Si el audio es ingles: transcribir y traducir a espanol latino (definir con que).
    - Guardar como .spa.srt y marcarlo "generado" en el reporte; solo con --generar.
 
-2. Biblioteca actual de Jellyfin: 171 de 236 videos sin sub ni audio en espanol
-   (segun "py verificar_jellyfin.py").
-   - ~129 peliculas (muchas YTS/YIFY): revisar si ya tienen .srt con nombre que
-     Jellyfin no reconoce (mismo problema que tuvo Avatar con "-ESP.srt") y pasarlas
-     por el proceso.
-   - 42 episodios de "Avatar La leyenda de Aang": probablemente doblados pero sin
-     etiqueta de idioma en el audio. Ademas la biblioteca "Series" no tiene tipo de
-     contenido asignado (Jellyfin los trata como peliculas). Revisar/corregir.
+2. Biblioteca actual de Jellyfin: quedan 9 de 300 sin sub/audio en espanol
+   (2026-11-23: se ordenaron 130 peliculas con ordenar_biblioteca.py --todas, a
+   "Titulo (Anio) [tmdbid-N]"; Aang y Shaman King pasaron a SxxEyy con audio
+   etiquetado "spa"; la biblioteca "Series" se recreo como Programas de TV).
+   Faltan:
+   - Sin sub en linea: The Magic Flute (1975), Broken Embraces (2009), Mank (2020),
+     The Sound of Identity (2020). Candidatas para Whisper (Fase 3).
+   - Revisar a mano: Nymphomaniac Vol I+II (2 videos en una carpeta), carpeta
+     "peliculas\movies" (5 peliculas juntas), Stephen King's IT 1990 Parte 1 y 2
+     (unir en "It (1990)\It (1990) - part1/part2"), The ABCs of Death y
+     El juego de Ender (no se encontraron en TMDB), Mad Max Fury Road y
+     Mulholland Drive (2 videos por carpeta).
+   - Aang S01E16 y S03E10: el audio viene en INGLES; buscar version doblada o sub.
 
 3. Fase 4 (opcional): convertir el flujo en una skill de Claude cuando este estable.
 

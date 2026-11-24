@@ -14,3 +14,6 @@ OPENSUBTITLES_CLAVE=
 # Jellyfin (para verificar_jellyfin.py). Clave: Panel de control > Claves de API.
 JELLYFIN_URL=http://<IP-DEL-NAS>:<PUERTO>
 JELLYFIN_API_KEY=
+
+# Carpeta de red que Jellyfin usa como biblioteca de peliculas (para ordenar_biblioteca.py)
+BIBLIOTECA_PELICULAS=\\<IP-DEL-NAS>\<carpeta>\peliculas

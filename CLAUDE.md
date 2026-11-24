@@ -27,6 +27,23 @@ Jellyfin ya lo leyó y aparece en el menú — no hace falta probarlos uno a uno
 con audio en español también cuenta como OK. Ojo: Jellyfin muestra el título traducido
 (ej. "Avatar: Los Siete Refugios"); `--buscar` también busca en la ruta.
 
+## Comando: "ordenar biblioteca"
+Para películas que YA están en la biblioteca de Jellyfin (`BIBLIOTECA_PELICULAS` en
+`RUTAS.txt` = la carpeta de red que Jellyfin ve como biblioteca de películas):
+`py ordenar_biblioteca.py [--todas] [--descargar] [--aplicar] [--buscar "<texto>"]`.
+- Sin `--todas`: solo las que Jellyfin ve sin sub/audio en español. Con `--todas`: también
+  las que no siguen la convención.
+- Busca el título en TMDB vía Jellyfin. Se queda con el título exacto, luego con el
+  id que Jellyfin ya tenía y luego con el año exacto. Si no hay coincidencia, no adivina:
+  la deja en "REVISAR A MANO".
+- Busca subs en español en la carpeta y sus subcarpetas (`Subs\spa.srt`,
+  `*-spanish-yify\`, `.srt` sin código de idioma). Ignora otros idiomas por su nombre
+  (`por`, `cat`, `ita`…) y los valida con las reglas de abajo.
+- Renombra en su lugar: `Titulo (Año) [tmdbid-N]\Titulo (Año).ext` + `.spa.srt`
+  (+ `.eng.srt` si había uno en inglés). Borra los candidatos de `--descargar` que no se
+  eligieron. Las carpetas con varios videos (sagas, partes) se revisan a mano.
+- Ojo: Jellyfin trata la ruta nueva como otro elemento (se pierde el "visto").
+
 ## Reglas del proceso
 - **Idioma:** prioridad `es-419` (latino) > `es` (castellano). Inglés u otro idioma = no válido.
 - **Válido contra el video** (lo compara con la duración de `ffprobe`):

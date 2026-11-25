@@ -263,9 +263,10 @@ def generar(video: Path, ff: str | None, ffmpeg: str | None, modelo: str = MODEL
         forzado = "es" if etiqueta in ("spa", "es", "es-419", "es-mx", "esp") else None
         avisar(f"  transcribiendo con {modelo} en {dispositivo} ({tipo})...")
         audio = leer_wav(wav)
-        segmentos, info = mdl.transcribe(audio, language=forzado, task="transcribe",
-                                         vad_filter=True, beam_size=5,
-                                         condition_on_previous_text=False)
+        segmentos, info = mdl.transcribe(
+            audio, language=forzado, task="transcribe",
+            vad_filter=True, vad_parameters={"threshold": 0.35, "min_silence_duration_ms": 500},
+            beam_size=5, condition_on_previous_text=False, word_timestamps=True)
         idioma = (info.language or "?").lower()
         bloques: list[tuple[float, float, str]] = []
         anterior = ""
@@ -281,7 +282,14 @@ def generar(video: Path, ff: str | None, ffmpeg: str | None, modelo: str = MODEL
             else:
                 repetidos = 0
             anterior = texto
-            bloques.append((s.start, s.end, texto))
+            # El timestamp del segmento completo no siempre cuadra con donde
+            # empieza/termina de verdad el dialogo (mas notorio con musica de
+            # fondo o pausas largas); el de cada palabra, calculado aparte por
+            # alineacion, es mas preciso.
+            palabras = getattr(s, "words", None)
+            inicio = palabras[0].start if palabras else s.start
+            fin = palabras[-1].end if palabras else s.end
+            bloques.append((inicio, fin, texto))
         del mdl
 
         if not bloques:

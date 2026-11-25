@@ -1,6 +1,6 @@
 PENDIENTES DE SESIONES ANTERIORES
 =================================
-Ultima actualizacion: 2026-11-24
+Ultima actualizacion: 2026-11-25
 
 HECHO EN LA SESION DEL 2026-11-24 (PC con GTX 1060)
 ---------------------------------------------------
@@ -78,3 +78,62 @@ RECORDATORIOS
 - Clonar:  git clone https://github.com/ArturoRR18/subs.git 3.-SUBS
            cd 3.-SUBS
            py -m pip install subliminal ffsubsync
+
+HECHO EN LA SESION DEL 2026-11-25 (continuacion, PC con GTX 1060)
+------------------------------------------------------------------
+- Probado --generar con un episodio real (The Sopranos S01E01, ~1h): 3m54s,
+  851 lineas, calidad buena en dialogo (floja solo en la cancion de los
+  creditos finales). Se subio a la biblioteca de series:
+  series\The Sopranos (1999) [tmdbid-1398]\Season 01\The Sopranos S01E01.*
+- BUG arreglado en whisper_subs.py: el timestamp de bloque de Whisper no
+  siempre cuadra con el audio real (ej. mostraba una linea 31s antes de que
+  se dijera). Se agrego word_timestamps=True y se usa el primer/ultimo
+  timestamp de PALABRA en vez del timestamp de segmento. Tambien se bajo el
+  threshold del VAD (0.35) y min_silence_duration_ms (500) para intentar
+  perder menos frases cortas. Confirmado con S01E01: los 2 desfases que el
+  usuario reporto a mano quedaron corregidos; una expresion corta ("hey,
+  listen") sigue sin aparecer aparte (se funde con la traduccion de la
+  siguiente frase, limite de traduccion, no de tiempos).
+- Nuevo comparar_whisper.py: compara un .whisper.es.srt contra el .spa.srt
+  humano del MISMO video (por tiempos, no texto exacto) para encontrar
+  patrones de error sin tener que ver el video. Uso:
+  py comparar_whisper.py --lote "<carpeta>"  (busca pares *.spa.srt/*.whisper.es.srt)
+
+- *** BUG CRITICO, NO es de Whisper ***: al comparar los 3 episodios de
+  Sopranos S04 que ya tenian subtitulo "valido" (E02, E06, E07 - descargados
+  de Subtitulamos), las lineas que el comparador marco como "Whisper no
+  agarro" resultaron ser dialogo de OTRA SERIE: "Anteriormente en The
+  Strain..." (hablan de vampiros/Strigoi). Confirmado a mano en los 5 (E02,
+  E06, E07, E09, E10): LOS 5 SUBTITULOS DESCARGADOS SON DE "THE STRAIN", NO
+  DE THE SOPRANOS. El validador de jellyfin_subs.py (duracion/tiempos/idioma)
+  no detecta esto porque nunca compara el CONTENIDO contra el titulo real.
+  Probablemente Subtitulamos (u otro proveedor) tiene mal etiquetado el
+  episodio, o subliminal empato mal por numero de temporada/episodio sin
+  verificar el titulo de la serie.
+  * Estos 5 siguen SOLO en REV_SUBTITULOS (S-REV\REV_SUBTITULOS\The
+    Sopranos\Season 04\), NO se han movido a la biblioteca real de series
+    todavia - no esta corrupto nada en Jellyfin, pero hay que corregirlos
+    antes de mover esa carpeta.
+  * Whisper SI transcribe el dialogo correcto de Sopranos para esos mismos
+    episodios (confirmado, son las lineas "huerfanas" en la comparacion) -
+    se generaron The Sopranos S04E02/E06/E07.whisper.es.srt junto a los
+    .spa.srt malos, listos para usarlos en vez de los descargados.
+
+PENDIENTE URGENTE (antes de mover REV_SUBTITULOS a la biblioteca)
+-------------------------------------------------------------------
+1. Reemplazar los 5 .spa.srt malos de Sopranos S04 (E02,E06,E07,E09,E10) con
+   los .whisper.es.srt ya generados para E02/E06/E07, y generar los que
+   faltan (E09, E10) - el lote se interrumpio a medio correr en E09.
+   O mejor: agregar una validacion a jellyfin_subs.py que detecte subtitulos
+   de la serie/pelicula equivocada (ej. buscar frases tipo "Anteriormente en
+   <otro titulo>" al inicio, o verificar que el titulo coincida con algo del
+   contenido) para que esto no vuelva a pasar sin que nadie lo note.
+2. Revisar si alguna otra descarga de sesiones pasadas tiene el mismo
+   problema de serie/pelicula equivocada (no se ha revisado sistematicamente).
+3. Retomar los 21 videos de S-REV sin subtitulo (Street Fighter + 12 de
+   Sopranos S01 + 8 de S04): la descarga fallo 0/21 por limite de cuota
+   (probablemente OpenSubtitles.com); reintentar mas tarde o generar con
+   --generar (ya probado y funciona bien, ~4 min por hora de video).
+4. Fase 4 (pendiente de antes): decidir si vale la pena explorar doblaje de
+   audio (TTS) como proyecto aparte - el usuario pregunto, se le explico que
+   no es lo que hace whisper_subs.py hoy (solo genera subtitulo, no audio).

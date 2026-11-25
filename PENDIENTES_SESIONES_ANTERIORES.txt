@@ -14,6 +14,22 @@ HECHO EN LA SESION DEL 2026-11-24 (PC con GTX 1060)
 - Esta PC: ffmpeg instalado con winget (Gyan.FFmpeg), faster-whisper + CUDA por pip.
 - validar_rutas.py: FFMPEG puede quedar vacio si esta en el PATH; WHISPER_MODELO
   no se trata como ruta.
+- PROBADO de verdad con videos sinteticos (voz generada con System.Speech) y
+  corregidos 2 bugs que solo aparecian en la GPU real:
+  * decode_audio() de faster-whisper usa PyAV, y la version de `av` que pip da
+    para Python 3.14 (19.0.2) ya no acepta el parametro `metadata_errors` que
+    usa faster-whisper 1.2.1 -> error "open() got an unexpected keyword
+    argument". Arreglado leyendo el WAV con el modulo `wave` y pasandole el
+    array a transcribe() en vez de la ruta (bypassa PyAV por completo).
+  * La GTX 1060 (Pascal) no soporta float16 eficiente: _cargar_whisper()
+    ahora prueba cuda+int8 antes de caer a CPU.
+  * ctranslate2 en Windows carga cublas64_12.dll/cudnn por su cuenta y no
+    respeta os.add_dll_directory: hubo que agregar esas carpetas al PATH del
+    proceso tambien (preparar_dlls() en whisper_subs.py).
+  * Faltaba sentencepiece para el traductor (ya esta en requisitos de CLAUDE.md).
+  - Con esas correcciones: transcripcion en espanol y traduccion ingles->espanol
+    funcionando en GPU real, ~16-18s para un audio de 30s-1min (no es el ritmo
+    real de una pelicula completa, falta medir un video largo de verdad).
 
 HECHO EN LA SESION DEL 2026-11-16
 ---------------------------------

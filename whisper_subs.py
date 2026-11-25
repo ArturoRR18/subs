@@ -24,8 +24,11 @@ import re
 import subprocess
 import sys
 import tempfile
+import wave
 import zipfile
 from pathlib import Path
+
+import numpy as np
 
 RAIZ = Path(__file__).resolve().parent
 MODELOS = RAIZ / "modelos"
@@ -44,7 +47,9 @@ MAX_CARACTERES_LINEA = 42       # se parte en 2 lineas como los subs comerciales
 
 def preparar_dlls() -> None:
     """Las DLL de CUDA instaladas con pip (nvidia-cublas-cu12, nvidia-cudnn-cu12)
-    no estan en el PATH: hay que anunciarlas antes de importar ctranslate2."""
+    no estan en el PATH: hay que anunciarlas antes de importar ctranslate2.
+    os.add_dll_directory() no basta: ctranslate2 carga cublas por su cuenta (no
+    via el import machinery de Python) y solo lo encuentra si esta en PATH."""
     if os.name != "nt":
         return
     for base in sys.path:
@@ -56,6 +61,9 @@ def preparar_dlls() -> None:
                 os.add_dll_directory(str(bin_dir))
             except OSError:
                 pass
+            ruta = str(bin_dir)
+            if ruta not in os.environ["PATH"].split(os.pathsep):
+                os.environ["PATH"] = ruta + os.pathsep + os.environ["PATH"]
 
 
 def disponible() -> str | None:
@@ -164,6 +172,16 @@ class Traductor:
         return salida
 
 
+def leer_wav(p: Path) -> "np.ndarray":
+    """Lee un WAV PCM 16 bits mono como float32 en [-1, 1], sin pasar por PyAV:
+    las versiones recientes de la libreria `av` (unicas con rueda para Python
+    3.14) quitaron el parametro que usa faster-whisper para decodificar audio."""
+    with wave.open(str(p), "rb") as w:
+        datos = w.readframes(w.getnframes())
+    audio = np.frombuffer(datos, dtype=np.int16).astype(np.float32) / 32768.0
+    return audio
+
+
 # --------------------------------------------------------------------------- srt
 
 def fmt_srt(seg: float) -> str:
@@ -211,8 +229,9 @@ def escribir_srt(bloques: list[tuple[float, float, str]], destino: Path) -> int:
 def _cargar_whisper(modelo: str, cpu: bool):
     from faster_whisper import WhisperModel
     intentos = ([("cpu", "int8")] if cpu else
-                # la GTX 1060 (Pascal) es lenta en float16: int8 le sienta mejor
-                [("cuda", "int8_float16"), ("cuda", "float16"), ("cpu", "int8")])
+                # la GTX 1060 (Pascal, compute 6.1) no soporta float16 eficiente:
+                # int8_float16/float16 fallan ahi y hay que caer a int8 en CUDA.
+                [("cuda", "int8_float16"), ("cuda", "float16"), ("cuda", "int8"), ("cpu", "int8")])
     ultimo = None
     for dispositivo, tipo in intentos:
         try:
@@ -243,7 +262,8 @@ def generar(video: Path, ff: str | None, ffmpeg: str | None, modelo: str = MODEL
         mdl, dispositivo, tipo = _cargar_whisper(modelo, cpu)
         forzado = "es" if etiqueta in ("spa", "es", "es-419", "es-mx", "esp") else None
         avisar(f"  transcribiendo con {modelo} en {dispositivo} ({tipo})...")
-        segmentos, info = mdl.transcribe(str(wav), language=forzado, task="transcribe",
+        audio = leer_wav(wav)
+        segmentos, info = mdl.transcribe(audio, language=forzado, task="transcribe",
                                          vad_filter=True, beam_size=5,
                                          condition_on_previous_text=False)
         idioma = (info.language or "?").lower()

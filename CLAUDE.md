@@ -81,6 +81,14 @@ Para películas que YA están en la biblioteca de Jellyfin (`BIBLIOTECA_PELICULA
     cualquier subtítulo humano (si aparece uno real, gana el real).
   - Es el paso más lento (minutos por video) y los tiempos son aproximados:
     úsalo solo cuando no haya nada en línea.
+  - GPU Pascal (ej. GTX 1060) o más vieja: no soporta float16 eficiente, cae a
+    `int8` en CUDA (`whisper_subs.py` ya intenta esa combinación). En Windows,
+    además de `os.add_dll_directory`, las rutas de `nvidia-cublas-cu12`/
+    `nvidia-cudnn-cu12` se agregan también al `PATH` del proceso — ctranslate2
+    carga esas DLL por su cuenta (no vía el import de Python) y solo las
+    encuentra ahí. Decodifica el audio con el WAV de ffmpeg directo (no con
+    `av`/PyAV): las ruedas de `av` para Python 3.14 ya no aceptan el parámetro
+    que usa faster-whisper 1.2.1 para abrir el archivo.
 - Los subtítulos se guardan en **UTF-8** (convierte cp1252/latin-1 para que se
   vean bien acentos y ñ).
 - **Nunca sobrescribe:** si el destino ya existe, se detiene y avisa.

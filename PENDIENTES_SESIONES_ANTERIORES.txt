@@ -1,6 +1,19 @@
 PENDIENTES DE SESIONES ANTERIORES
 =================================
-Ultima actualizacion: 2026-11-23
+Ultima actualizacion: 2026-11-24
+
+HECHO EN LA SESION DEL 2026-11-24 (PC con GTX 1060)
+---------------------------------------------------
+- Fase 3 lista en codigo: whisper_subs.py + jellyfin_subs.py --generar.
+  * Extrae el audio con ffmpeg (prefiere la pista etiquetada en espanol).
+  * Transcribe con faster-whisper (large-v3-turbo; WHISPER_MODELO en RUTAS.txt).
+  * Audio en ingles: traduce linea por linea con Opus-MT/Argos en CPU
+    (modelos/traductor-en-es, el .argosmodel no se sube a git).
+  * El resultado es <video>.whisper.es.srt, pasa la validacion normal y en el
+    reporte sale "generado con Whisper" (puntua por debajo de un sub humano).
+- Esta PC: ffmpeg instalado con winget (Gyan.FFmpeg), faster-whisper + CUDA por pip.
+- validar_rutas.py: FFMPEG puede quedar vacio si esta en el PATH; WHISPER_MODELO
+  no se trata como ruta.
 
 HECHO EN LA SESION DEL 2026-11-16
 ---------------------------------
@@ -19,12 +32,12 @@ HECHO EN LA SESION DEL 2026-11-16
 
 PENDIENTES
 ----------
-1. FASE 3 - Generar subtitulos con Whisper (en la PC con NVIDIA GTX 1060 6GB)
-   - Clonar el repo en esa PC y escribir "nueva computadora" en Claude Code.
-   - Instalar faster-whisper (modelo large-v3-turbo, ~1-2 min por episodio con GPU).
-   - Si el audio es espanol: transcribir directo.
-   - Si el audio es ingles: transcribir y traducir a espanol latino (definir con que).
-   - Guardar como .spa.srt y marcarlo "generado" en el reporte; solo con --generar.
+1. FASE 3 - Probar --generar con peliculas reales (ya esta implementado)
+   - Medir cuanto tarda un episodio y una pelicula en la GTX 1060.
+   - Revisar la calidad de la traduccion en->es (Opus-MT es decente pero no es
+     "latino" fino; si no alcanza, evaluar traducir con la API de Claude).
+   - Candidatas: The Magic Flute (1975), Broken Embraces (2009), Mank (2020),
+     The Sound of Identity (2020), Aang S01E16 y S03E10 (audio en ingles).
 
 2. Biblioteca actual de Jellyfin: quedan 9 de 300 sin sub/audio en espanol
    (2026-11-23: se ordenaron 130 peliculas con ordenar_biblioteca.py --todas, a

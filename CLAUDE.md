@@ -69,6 +69,18 @@ Para películas que YA están en la biblioteca de Jellyfin (`BIBLIOTECA_PELICULA
   de OpenSubtitles.com (si hay `OPENSUBTITLES_USUARIO`/`CLAVE` en `RUTAS.txt`),
   Subtitulamos, Subtis, Podnapisi, Gestdown, Addic7ed, TVsubtitles y BSPlayer.
   Subdivx bloquea el acceso automatizado, no se usa.
+- **Generación con Whisper** (`--generar`, último recurso, necesita GPU): para los
+  videos que siguen sin subtítulo, `whisper_subs.py` extrae el audio con ffmpeg y
+  lo transcribe con faster-whisper (`large-v3-turbo`; cambia con `WHISPER_MODELO`
+  en `RUTAS.txt`). Si el audio ya está en español transcribe directo; si está en
+  inglés traduce línea por línea con el modelo Opus-MT/Argos en
+  `modelos\traductor-en-es` (CPU, no pelea por la VRAM). Otros idiomas no se
+  traducen: quedan en `SIN_SUBTITULOS.txt`.
+  - El archivo se llama `<video>.whisper.es.srt` y pasa por la misma validación.
+    En el reporte sale como "generado con Whisper", y puntúa por debajo de
+    cualquier subtítulo humano (si aparece uno real, gana el real).
+  - Es el paso más lento (minutos por video) y los tiempos son aproximados:
+    úsalo solo cuando no haya nada en línea.
 - Los subtítulos se guardan en **UTF-8** (convierte cp1252/latin-1 para que se
   vean bien acentos y ñ).
 - **Nunca sobrescribe:** si el destino ya existe, se detiene y avisa.
@@ -80,6 +92,11 @@ Para películas que YA están en la biblioteca de Jellyfin (`BIBLIOTECA_PELICULA
 - `ffprobe` (viene con FFmpeg) — en el PATH o en `FFPROBE` de `RUTAS.txt`.
 - Opcional para descargar: `py -m pip install subliminal`
 - Opcional para sincronizar: `py -m pip install ffsubsync` (usa `ffmpeg` del PATH)
+- Opcional para generar (`--generar`, solo en la PC con GPU NVIDIA):
+  `py -m pip install faster-whisper nvidia-cublas-cu12 nvidia-cudnn-cu12 sentencepiece`
+  y el traductor en `modelos\translate-en_es-1_0.argosmodel`
+  (`https://argos-net.com/v1/translate-en_es-1_0.argosmodel`; `modelos\` está en
+  `.gitignore`, hay que bajarlo en cada máquina). Sin GPU cae a CPU y tarda mucho.
 - **Usa siempre `py`, no `python`:** el lanzador `py` elige el Python instalado
   aunque otro programa (p. ej. Inkscape) meta su propio `python.exe` en el PATH
   del sistema, que no maneja bien las rutas de red del NAS.

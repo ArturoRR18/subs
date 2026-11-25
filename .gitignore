@@ -20,3 +20,6 @@ __pycache__/
 *.sub
 REV_SUBTITULOS/
 SIN_SUBTITULOS.txt
+
+# Modelos descargados (pesan cientos de MB)
+modelos/

@@ -17,3 +17,11 @@ JELLYFIN_API_KEY=
 
 # Carpeta de red que Jellyfin usa como biblioteca de peliculas (para ordenar_biblioteca.py)
 BIBLIOTECA_PELICULAS=\\<IP-DEL-NAS>\<carpeta>\peliculas
+
+# ffmpeg.exe (opcional). Solo hace falta para --generar (extraer el audio).
+# Si esta junto a ffprobe o en el PATH, dejalo vacio.
+FFMPEG=
+
+# Modelo de Whisper para --generar (opcional). Por defecto large-v3-turbo.
+# En una GPU con poca VRAM usa medium o small.
+WHISPER_MODELO=

@@ -4,7 +4,7 @@
 Uso:
   py jellyfin_subs.py                 # revisa CARPETA_ENTRADA (de RUTAS.txt) en modo simulacion
   py jellyfin_subs.py --aplicar       # ejecuta: renombra, crea carpetas y mueve a REV_SUBTITULOS
-  py jellyfin_subs.py --carpeta "C:\\ruta" [--aplicar] [--descargar]
+  py jellyfin_subs.py --carpeta "C:\\ruta" [--aplicar] [--descargar] [--generar]
 
 Flujo por cada video:
   1. Busca subtitulos externos que le correspondan (mismo nombre, mismo episodio,
@@ -13,7 +13,9 @@ Flujo por cada video:
      duracion cuadre con la del video (ffprobe).
   3. Si un subtitulo en espanol falla por tiempos, intenta rescatarlo: reacomoda
      las lineas con horas imposibles y, si no basta, lo sincroniza con ffsubsync.
-  4. Valido  -> lo mueve a REV_SUBTITULOS con estructura y nombres de Jellyfin.
+  4. Con --generar, si no quedo ninguno valido, transcribe el audio con Whisper
+     (whisper_subs.py, GPU) y traduce al espanol si el audio esta en ingles.
+  5. Valido  -> lo mueve a REV_SUBTITULOS con estructura y nombres de Jellyfin.
      Invalido -> lo deja donde esta y lo agrega a SIN_SUBTITULOS.txt.
 """
 from __future__ import annotations
@@ -58,6 +60,9 @@ CACHE_SYNC = Path(tempfile.gettempdir()) / "jellyfin_subs_sync"
 PROVEEDORES = ["podnapisi", "gestdown", "addic7ed", "tvsubtitles", "bsplayer", "subtitulamos", "subtis"]
 DESCARGAS_POR_VIDEO = 4       # baja varios por si el mejor puntuado viene roto
 
+# Subtitulos hechos por nosotros con Whisper (--generar): se reconocen por el nombre
+MARCA_GENERADO = ".whisper"
+
 # --------------------------------------------------------------------------- utilidades
 
 def leer_rutas() -> dict[str, str]:
@@ -78,6 +83,19 @@ def ffprobe_bin(rutas: dict[str, str]) -> str | None:
     if cand and Path(cand).exists():
         return cand
     return shutil.which("ffprobe")
+
+
+def ffmpeg_bin(rutas: dict[str, str]) -> str | None:
+    """ffmpeg (no ffprobe): hace falta para extraer el audio con --generar."""
+    cand = rutas.get("FFMPEG")
+    if cand and Path(cand).exists():
+        return cand
+    ff = rutas.get("FFPROBE")
+    if ff:
+        vecino = Path(ff).with_name("ffmpeg" + Path(ff).suffix)
+        if vecino.exists():
+            return str(vecino)
+    return shutil.which("ffmpeg")
 
 
 def sin_acentos(s: str) -> str:
@@ -592,6 +610,9 @@ def procesar(entrada: Path, aplicar: bool, ff: str | None) -> list[Resultado]:
                 validar_contra_video(s, dur)
                 rescatar(s, v, dur)
                 ffmpeg_lee(s, ff)
+                if MARCA_GENERADO in sp.name.lower():
+                    s.nota = f"{s.nota}; generado con Whisper" if s.nota else "generado con Whisper"
+                    s.puntaje = max(0.0, s.puntaje - 0.6)   # un sub humano siempre le gana
                 evaluados.append(s)
             evaluados += internos
             validos = sorted([s for s in evaluados if s.valido], key=lambda s: -s.puntaje)
@@ -649,7 +670,8 @@ def reporte(entrada: Path, resultados: list[Resultado], aplicar: bool) -> str:
             L.append(f"[OK] {r.video.name}")
             L.append(f"     sub: {origen} ({e.idioma}{', ' + e.codificacion if e.codificacion else ''})")
             if e.nota:
-                L.append(f"     corregido: {e.nota}")
+                etiqueta = "generado" if "generado con Whisper" in e.nota else "corregido"
+                L.append(f"     {etiqueta}: {e.nota}")
             L.append(f"     ->  {r.destino_video.relative_to(entrada)}")
             if r.destino_sub:
                 L.append(f"     ->  {r.destino_sub.relative_to(entrada)}")
@@ -724,6 +746,32 @@ def descargar(resultados: list[Resultado], rutas: dict[str, str]) -> None:
             print(f"Error descargando {r.video.name}: {e}")
 
 
+# --------------------------------------------------------------------------- generar opcional
+
+def generar(resultados: list[Resultado], rutas: dict[str, str], ff: str | None) -> None:
+    """Ultimo recurso: transcribe el audio con Whisper para los videos que siguen
+    sin subtitulo valido. El .srt queda junto al video y la pasada siguiente lo valida."""
+    try:
+        import whisper_subs
+    except ImportError as e:
+        print(f"no se pudo cargar whisper_subs.py: {e}")
+        return
+    falta = whisper_subs.disponible()
+    if falta:
+        print(f"{falta}  (generacion omitida)")
+        return
+    ffmpeg = ffmpeg_bin(rutas)
+    if not ffmpeg:
+        print("ffmpeg no encontrado; no se puede extraer el audio (generacion omitida)")
+        return
+    modelo = rutas.get("WHISPER_MODELO") or whisper_subs.MODELO_DEF
+    pendientes = [r for r in resultados if not r.elegido]
+    for n, r in enumerate(pendientes, 1):
+        print(f"[{n}/{len(pendientes)}] generando subtitulo: {r.video.name}")
+        ruta, nota = whisper_subs.generar(r.video, ff, ffmpeg, modelo)
+        print(f"     {'OK: ' + ruta.name + ' - ' if ruta else ''}{nota}")
+
+
 # --------------------------------------------------------------------------- main
 
 def main() -> int:
@@ -731,6 +779,8 @@ def main() -> int:
     ap.add_argument("--carpeta", help="Carpeta a revisar (por defecto CARPETA_ENTRADA de RUTAS.txt)")
     ap.add_argument("--aplicar", action="store_true", help="Mover/renombrar de verdad (sin esto solo simula)")
     ap.add_argument("--descargar", action="store_true", help="Intentar descargar subs faltantes y re-evaluar")
+    ap.add_argument("--generar", action="store_true",
+                    help="Generar con Whisper (GPU) los que sigan sin subtitulo y re-evaluar")
     ap.add_argument("--json", action="store_true", help="Salida JSON para el agente")
     a = ap.parse_args()
 
@@ -749,6 +799,8 @@ def main() -> int:
 
     if a.descargar:
         descargar(procesar(entrada, False, ff), rutas)
+    if a.generar:
+        generar(procesar(entrada, False, ff), rutas, ff)
     resultados = procesar(entrada, a.aplicar, ff)
     texto = reporte(entrada, resultados, a.aplicar)
 

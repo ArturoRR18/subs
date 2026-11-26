@@ -142,11 +142,12 @@ HECHO EN LA SESION DEL 2026-11-25 (tarde)
   comparar_whisper.py ignora lineas SDH "(Phone ringing)" y cuenta largas.
   Limite: algunas frases quedan partidas a media oracion (se traduce cada
   pedazo por separado); el traductor a veces suena castellano ("Vale").
+- Regenerados con el codigo nuevo y reemplazados: S04 E02/E06/E07/E09/E10
+  (cobertura 96-99%) y S01E01 en la biblioteca (85%->97%, largas 92->10).
+- Ojo en PowerShell: rutas con "[tmdbid-N]" necesitan -LiteralPath.
 
 PENDIENTES
 ----------
-0. Regenerar con el codigo nuevo S01E01 (ya en la biblioteca, hecho con el
-   codigo viejo: 92 lineas gigantes).
 1. Retomar los 21 videos de S-REV sin subtitulo (Street Fighter + 12 de
    Sopranos S01 + 8 de S04): la descarga fallo 0/21 por limite de cuota
    (probablemente OpenSubtitles.com); reintentar o usar --generar

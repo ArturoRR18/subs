@@ -148,10 +148,18 @@ HECHO EN LA SESION DEL 2026-11-25 (tarde)
 
 PENDIENTES
 ----------
-1. Retomar los 21 videos de S-REV sin subtitulo (Street Fighter + 12 de
-   Sopranos S01 + 8 de S04): la descarga fallo 0/21 por limite de cuota
-   (probablemente OpenSubtitles.com); reintentar o usar --generar
-   (~4 min por hora de video en la GTX 1060).
+1. SIGUIENTE SESION: 21 videos de S-REV siguen sin sub en espanol
+   (la descarga fallo 0/21 por limite de cuota, probablemente OpenSubtitles.com):
+   - Sopranos S01 E02-E13 (12) en S-REV\The.Sopranos.S01.1080p.BluRay.x265-RARBG
+     (solo traen subs en ingles). Solo E01 tiene sub (ya en la biblioteca).
+   - Sopranos S04: los 8 que no estan en REV_SUBTITULOS.
+   - Street Fighter (2026).
+   Plan: generar con Whisper (~4 min por hora de video, ~1.5 h los 20 de
+   Sopranos) y luego aplicar:
+     py jellyfin_subs.py --generar
+     py jellyfin_subs.py --aplicar
+   Revisar calidad contra los subs en ingles del BluRay:
+     py comparar_whisper.py "<Subs\...\N_English.srt>" "<...spa.srt>"
 2. Mover S-REV\REV_SUBTITULOS\The Sopranos a la biblioteca de series y
    correr "verificar jellyfin".
 3. Fase 4 (opcional): doblaje de audio (TTS) como proyecto aparte; y/o

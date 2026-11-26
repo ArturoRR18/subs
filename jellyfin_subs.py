@@ -222,6 +222,7 @@ class Sub:
     puntaje: float = 0.0
     texto: str | None = None   # contenido corregido a escribir en destino (None = copiar el original)
     nota: str = ""             # que se le corrigio
+    cabecera: str = ""         # primeros dialogos (para detectar subs de otra serie/pelicula)
 
 
 # marcas que dejan algunos generadores automaticos: "[cite: 2]", "[cite_start]"
@@ -272,6 +273,7 @@ def medir_sub(s: Sub, texto: str, ext: str) -> None:
                         if l.strip() and not rx.search(l) and not l.strip().isdigit()]
 
     s.dialogos = len(tiempos)
+    s.cabecera = "\n".join(lineas_texto[:12])
     if not tiempos:
         s.motivo = "no tiene dialogos con tiempos validos (archivo vacio o corrupto)"
         return
@@ -306,6 +308,35 @@ def idioma_por_nombre(nombre: str) -> str | None:
     if re.search(r"(?<![a-z])(es|spa|spanish|espanol)(?![a-z])", n):
         return "es-419?"
     return None
+
+
+# "Anteriormente en The Strain..." al inicio delata un sub de OTRA serie con el mismo SxxEyy
+RE_RESUMEN = re.compile(
+    r"^[\W_]*(?:(?:anteriormente|previamente)\s+en|en\s+(?:capitulos|episodios)\s+anteriores\s+(?:de|en)|"
+    r"previously\s+on)\s", re.I)
+PAL_VACIAS = {"the", "a", "an", "of", "and", "el", "la", "los", "las", "un", "una", "de", "del", "y"}
+
+
+def _raices(s: str) -> set[str]:
+    return {w[:5] for w in re.findall(r"[a-z0-9]+", sin_acentos(s.lower())) if w not in PAL_VACIAS and len(w) >= 3}
+
+
+def revisar_titulo(s: Sub, info: Info) -> None:
+    """Rechaza el sub si su resumen inicial nombra otra serie/pelicula."""
+    if s.motivo or not s.cabecera:
+        return
+    propias = _raices(info.titulo)
+    if not propias:
+        return
+    for linea in s.cabecera.splitlines():
+        m = RE_RESUMEN.search(sin_acentos(linea))
+        if not m:
+            continue
+        nombrado = re.sub(r"[.…!:,]+\s*$", "", linea[m.end():]).strip(" -\"'")
+        ajenas = _raices(nombrado)
+        if ajenas and not ajenas & propias:
+            s.motivo = f'es de otra serie/pelicula (dice "{linea.strip(" -")}")'
+            return
 
 
 def validar_contra_video(s: Sub, duracion: float | None) -> None:
@@ -607,6 +638,7 @@ def procesar(entrada: Path, aplicar: bool, ff: str | None) -> list[Resultado]:
                 pista_nombre = idioma_por_nombre(sp.stem[len(v.stem):] if norm(sp.stem).startswith(norm(v.stem)) else sp.stem)
                 if pista_nombre == "en" and s.idioma != "es" and s.idioma != "es-419":
                     s.idioma = "en"
+                revisar_titulo(s, info)
                 validar_contra_video(s, dur)
                 rescatar(s, v, dur)
                 ffmpeg_lee(s, ff)

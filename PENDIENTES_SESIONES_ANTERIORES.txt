@@ -119,21 +119,26 @@ HECHO EN LA SESION DEL 2026-11-25 (continuacion, PC con GTX 1060)
     se generaron The Sopranos S04E02/E06/E07.whisper.es.srt junto a los
     .spa.srt malos, listos para usarlos en vez de los descargados.
 
-PENDIENTE URGENTE (antes de mover REV_SUBTITULOS a la biblioteca)
--------------------------------------------------------------------
-1. Reemplazar los 5 .spa.srt malos de Sopranos S04 (E02,E06,E07,E09,E10) con
-   los .whisper.es.srt ya generados para E02/E06/E07, y generar los que
-   faltan (E09, E10) - el lote se interrumpio a medio correr en E09.
-   O mejor: agregar una validacion a jellyfin_subs.py que detecte subtitulos
-   de la serie/pelicula equivocada (ej. buscar frases tipo "Anteriormente en
-   <otro titulo>" al inicio, o verificar que el titulo coincida con algo del
-   contenido) para que esto no vuelva a pasar sin que nadie lo note.
-2. Revisar si alguna otra descarga de sesiones pasadas tiene el mismo
-   problema de serie/pelicula equivocada (no se ha revisado sistematicamente).
-3. Retomar los 21 videos de S-REV sin subtitulo (Street Fighter + 12 de
+HECHO EN LA SESION DEL 2026-11-25 (tarde)
+-----------------------------------------
+- jellyfin_subs.py: nueva validacion revisar_titulo(). Si en los primeros 12
+  dialogos aparece "Anteriormente en X" / "Previously on X" / "En capitulos
+  anteriores de X" y X no comparte ninguna palabra con el titulo del video,
+  el sub se descarta: "es de otra serie/pelicula (dice ...)". Tolera titulos
+  traducidos que compartan raiz ("Los Soprano" ~ "The Sopranos").
+  Limite: solo detecta subs que traen ese resumen al inicio.
+- Escaneo de los 570 subtitulos de series\, peliculas\ y S-REV\: solo los 5
+  de Sopranos S04 tenian el problema (todos de The Strain).
+- Sopranos S04 E02/E06/E07/E09/E10: se borraron los .spa.srt de The Strain y
+  se reemplazaron por los generados con Whisper.
+
+PENDIENTES
+----------
+1. Retomar los 21 videos de S-REV sin subtitulo (Street Fighter + 12 de
    Sopranos S01 + 8 de S04): la descarga fallo 0/21 por limite de cuota
-   (probablemente OpenSubtitles.com); reintentar mas tarde o generar con
-   --generar (ya probado y funciona bien, ~4 min por hora de video).
-4. Fase 4 (pendiente de antes): decidir si vale la pena explorar doblaje de
-   audio (TTS) como proyecto aparte - el usuario pregunto, se le explico que
-   no es lo que hace whisper_subs.py hoy (solo genera subtitulo, no audio).
+   (probablemente OpenSubtitles.com); reintentar o usar --generar
+   (~4 min por hora de video en la GTX 1060).
+2. Mover S-REV\REV_SUBTITULOS\The Sopranos a la biblioteca de series y
+   correr "verificar jellyfin".
+3. Fase 4 (opcional): doblaje de audio (TTS) como proyecto aparte; y/o
+   convertir el flujo en skill.

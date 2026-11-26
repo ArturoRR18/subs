@@ -211,6 +211,41 @@ def partir_lineas(texto: str) -> str:
     return "\n".join(lineas)
 
 
+PAUSA_CORTE_SEG = 0.7   # silencio entre palabras que separa dos lineas
+MAX_BLOQUE_SEG = 6.0
+MAX_BLOQUE_CAR = 2 * MAX_CARACTERES_LINEA
+
+
+def dividir_segmento(palabras) -> list[tuple[float, float, str]]:
+    """Parte un segmento de Whisper en lineas de subtitulo usando el tiempo de
+    cada palabra. Whisper a veces devuelve 20-160 s de dialogo corrido sin
+    puntuacion en un solo segmento (comparado contra los subs del BluRay de
+    The Sopranos): sin partirlo, sale una linea gigante que tapa varias
+    frases y ademas se traduce mal."""
+    bloques: list[tuple[float, float, str]] = []
+    actual: list = []
+
+    def cerrar():
+        if actual:
+            texto = re.sub(r"\s+", " ", "".join(w.word for w in actual)).strip()
+            if texto:
+                bloques.append((actual[0].start, actual[-1].end, texto))
+            actual.clear()
+
+    for w in palabras:
+        if actual:
+            pausa = w.start - actual[-1].end
+            largo = len("".join(x.word for x in actual)) + len(w.word)
+            dur = w.end - actual[0].start
+            fin_frase = actual[-1].word.strip()[-1:] in ".?!…"
+            if (pausa > PAUSA_CORTE_SEG or largo > MAX_BLOQUE_CAR or dur > MAX_BLOQUE_SEG
+                    or (fin_frase and (pausa > 0.25 or dur > MAX_BLOQUE_SEG / 2))):
+                cerrar()
+        actual.append(w)
+    cerrar()
+    return bloques
+
+
 def escribir_srt(bloques: list[tuple[float, float, str]], destino: Path) -> int:
     partes = []
     n = 0
@@ -286,10 +321,14 @@ def generar(video: Path, ff: str | None, ffmpeg: str | None, modelo: str = MODEL
             # empieza/termina de verdad el dialogo (mas notorio con musica de
             # fondo o pausas largas); el de cada palabra, calculado aparte por
             # alineacion, es mas preciso.
+            # Alucinacion tipica (frases inventadas sobre musica/silencio).
+            if getattr(s, "no_speech_prob", 0) > 0.6 and getattr(s, "avg_logprob", 0) < -1.0:
+                continue
             palabras = getattr(s, "words", None)
-            inicio = palabras[0].start if palabras else s.start
-            fin = palabras[-1].end if palabras else s.end
-            bloques.append((inicio, fin, texto))
+            if palabras:
+                bloques.extend(dividir_segmento(palabras))
+            else:
+                bloques.append((s.start, s.end, texto))
         del mdl
 
         if not bloques:

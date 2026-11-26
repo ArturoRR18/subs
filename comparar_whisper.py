@@ -67,7 +67,10 @@ def parse_srt(p: Path) -> list[Linea]:
         if partes and partes[-1].isdigit():
             partes = partes[:-1]
         contenido = " ".join(partes)
-        if contenido:
+        # subs SDH: "(Phone ringing)", "[music]", "<i>...</i>", notas musicales no son dialogo
+        contenido = re.sub(r"<[^>]+>|\([^)]*\)|\[[^\]]*\]|♪.*", " ", contenido)
+        contenido = re.sub(r"\s+", " ", contenido).strip(" -")
+        if re.search(r"\w", contenido):
             lineas.append(Linea(inicio, fin, contenido))
     return lineas
 
@@ -104,6 +107,7 @@ def comparar(humano: list[Linea], whisper: list[Linea]) -> dict:
         "huerfanas": huerfanas,
         "desfase_prom": sum(desfases) / len(desfases) if desfases else 0.0,
         "desfase_max": max(desfases) if desfases else 0.0,
+        "largas": [w for w in whisper if w.fin - w.inicio > 8 or len(w.texto) > 90],
     }
 
 
@@ -111,7 +115,7 @@ def reporte(nombre: str, r: dict) -> str:
     L = [f"=== {nombre} ===",
          f"Lineas humanas: {r['total_humano']} | Whisper: {r['total_whisper']} | "
          f"cobertura: {r['cobertura']*100:.0f}% | desfase promedio: {r['desfase_prom']:.1f}s "
-         f"(max {r['desfase_max']:.1f}s)"]
+         f"(max {r['desfase_max']:.1f}s) | lineas demasiado largas: {len(r['largas'])}"]
     if r["sin_cobertura"]:
         L.append(f"-- Dialogo que Whisper NO agarro ({len(r['sin_cobertura'])}) --")
         for h in r["sin_cobertura"][:15]:

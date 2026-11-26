@@ -132,8 +132,21 @@ HECHO EN LA SESION DEL 2026-11-25 (tarde)
 - Sopranos S04 E02/E06/E07/E09/E10: se borraron los .spa.srt de The Strain y
   se reemplazaron por los generados con Whisper.
 
+- Comparacion Whisper vs subs INGLES del BluRay (tiempos confiables; no hay
+  sub humano en espanol de Sopranos): tiempos bien (<1s), pero 5-12% de lineas
+  eran gigantes (20-165s de dialogo corrido sin puntuacion) y se traducian mal.
+  Arreglo en whisper_subs.py: dividir_segmento() parte por tiempo de palabra
+  (pausa >0.7s, >6s, >84 car o fin de frase) y se descartan alucinaciones
+  (no_speech_prob>0.6 y avg_logprob<-1). S04E02 antes/despues: cobertura
+  94%->99%, lineas largas 44->8, desfase 0.8->0.6s. E09 97%, E10 96%.
+  comparar_whisper.py ignora lineas SDH "(Phone ringing)" y cuenta largas.
+  Limite: algunas frases quedan partidas a media oracion (se traduce cada
+  pedazo por separado); el traductor a veces suena castellano ("Vale").
+
 PENDIENTES
 ----------
+0. Regenerar con el codigo nuevo S01E01 (ya en la biblioteca, hecho con el
+   codigo viejo: 92 lineas gigantes).
 1. Retomar los 21 videos de S-REV sin subtitulo (Street Fighter + 12 de
    Sopranos S01 + 8 de S04): la descarga fallo 0/21 por limite de cuota
    (probablemente OpenSubtitles.com); reintentar o usar --generar

@@ -66,7 +66,7 @@
   position: absolute; inset: 0; z-index: 3; display: none;
   align-items: center; justify-content: center; pointer-events: none;
   background: radial-gradient(circle at center, rgba(0,0,0,.35), rgba(0,0,0,0) 60%);
-  opacity: .85; transition: opacity .25s ease;
+  opacity: 0; transition: opacity .25s ease;   /* oculto: solo aparece al pasar el cursor */
 }
 .itemDetailPage .detailImageContainer .card.tjJugable { cursor: pointer; }
 .itemDetailPage .detailImageContainer .card.tjJugable .tjPosterPlay { display: flex; }

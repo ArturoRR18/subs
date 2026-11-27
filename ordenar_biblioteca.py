@@ -454,6 +454,15 @@ def imprimir(planes: list[Plan], base: Path) -> None:
 
 # --------------------------------------------------------------------------- main
 
+def con_espanol(item: dict) -> bool:
+    """Como sub_espanol, pero sin contar los candidatos de --descargar/--traducir que
+    aun no se eligieron (Jellyfin ya los ve como sub en espanol)."""
+    streams = [m for m in item.get("MediaStreams") or []
+               if not (m.get("Type") == "Subtitle" and m.get("IsExternal")
+                       and RE_CANDIDATO.search((m.get("Path") or "").replace("\\", "/").rsplit("/", 1)[-1]))]
+    return sub_espanol({**item, "MediaStreams": streams}) is not None
+
+
 def biblioteca(jf: Jellyfin, tipo: str) -> dict | None:
     libs = [l for l in jf.pedir("/Library/VirtualFolders") if l.get("CollectionType") == tipo]
     if len(libs) != 1 or len(libs[0]["Locations"]) != 1:
@@ -504,7 +513,7 @@ def main() -> int:
             items = jf.pedir("/Items", Recursive="true", IncludeItemTypes="Movie", Fields="MediaStreams,Path,ProviderIds",
                              ParentId=lib["ItemId"], SortBy="SortName", EnableImages="false")["Items"]
             items = [i for i in items if (i.get("Path") or "").startswith(base_jf + "/") and coincide(i)
-                     and (not sub_espanol(i) or a.todas and not ya_ordenada(i["Path"]))]
+                     and (not con_espanol(i) or a.todas and not ya_ordenada(i["Path"]))]
             for i in items:
                 print(f"Revisando {i.get('Name')}...", file=sys.stderr, flush=True)
                 planes_pel.append(planear(jf, i, base_jf, base_pel, ff))
@@ -522,7 +531,7 @@ def main() -> int:
                            Fields="MediaStreams,Path,ProviderIds", SortBy="SeriesSortName,ParentIndexNumber,IndexNumber",
                            EnableImages="false")["Items"]
             eps = [i for i in eps if (i.get("Path") or "").startswith(base_jf + "/") and coincide(i)
-                   and (not sub_espanol(i) or a.todas and not ya_ordenado_ep(i["Path"], i))]
+                   and (not con_espanol(i) or a.todas and not ya_ordenado_ep(i["Path"], i))]
             for i in eps:
                 sid = i.get("SeriesId")
                 if sid not in series:

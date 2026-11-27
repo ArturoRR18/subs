@@ -5,8 +5,36 @@ repo/mod, y dónde quedó en `custom.css`.
 
 ## Base actual
 - **jellyfin-nebula** (`nemesbak/jellyfin-nebula@main/nebula.css`) — tema base.
-  Opciones: `cabecera-minima`, `titulo-en-texto`, `tarjetas-texto-centrado`, `acento-blanco`.
+  Opciones: `cabecera-minima`, `tarjetas-texto-centrado`, `acento-blanco`
+  (`titulo-en-texto` se quitó para ver los logos).
 - (Antes: JellyFlix estilo Netflix + ajustes propios; reemplazado por Nebula.)
+
+## Temas probados y qué tomamos (para la próxima sesión)
+Lista completa de temas: `awesome-jellyfin/awesome-jellyfin` → `THEMES.md`.
+Para probar uno: `py tema_jellyfin.py --aplicar <archivo con su @import>`; para
+volver: "recarga mi tema" (`--aplicar` + `--js`).
+
+| Tema | Estado | Qué tomamos |
+|---|---|---|
+| **Nebula** | ✅ base | Todo (menús, ficha, logos). Arreglos: póster a la izquierda sin salto, sin franja bajo el título. |
+| **JellyFlix** (`@zakariaa/jellyflix`) | ✅ probado | "Pop-up" al pasar el cursor por las tarjetas. (Logos: ya los daba Nebula.) |
+| **ElegantFin** | ⚪ probado | Nada (no se pidió ninguna pieza). |
+| **Abyss** | ✅ probado | Pestañas Inicio/Favoritos en cápsula + botón Play/Resume en píldora. (Su banner "Spotlight" necesita su instalador .exe: no se usó.) |
+| Plugin **Media Bar** | ✅ en uso | Carrusel con tráiler; mezcla imagen/tráiler más angosta. |
+| Propio | ✅ | Botón ▶ sobre el póster (JavaScript Injector). |
+
+**Por revisar** (compatibles con Jellyfin 10.10):
+- **Netflin** — estilo Netflix, trae estilos para Media Bar (el más parecido a lo que me gusta).
+- **ijelly** — 6 temas (Apple TV, Cinematheque Noir, Editorial, Gallery, Blueprint, Poster-Tinted).
+- **Jellyfish** — basado en Flow/Zesty/Ultrachromic, muchos colores.
+- **JellyThemes** — 6 temas oscuros con acento, barra superior de vidrio.
+- **Better Jellyfin UI** — distribución y animaciones estilo iOS.
+- **Ultrachromic** — clásico, muy personalizable.
+- **Scyfin**, **SleekFin**, **NeutralFin** — oscuros y limpios (familia ElegantFin).
+- **Catppuccin**, **Evergarden** — paletas pastel/suaves.
+- **infinitv**, **Zombie**.
+- Ocultos en la lista "pendientes de Jellyfin v12" (en 10.10 podrían funcionar):
+  **Finimalism**, **Finity**, **Flow**, **Jamfin**, **NetFin**, **Zesty**.
 
 ## Versiones aprobadas
 - **tema-v1** (git tag, 2026-11-26): Nebula + póster a la izquierda sin salto +
@@ -37,7 +65,7 @@ repo/mod, y dónde quedó en `custom.css`.
 - Botón ▶ sobre el póster de la ficha (película, serie, capítulo): clic = el botón
   Play/Reanudar de la ficha. Necesita JavaScript → plugin **JavaScript Injector**
   3.5 (n00bcodr, instalado 2026-11-26) + `tema/js/poster-play.js` (se sube con
-  `py tema_jellyfin.py --js`); estilos `.tjPosterPlay` en `custom.css`.
+  `py tema_jellyfin.py --js`); sus estilos van dentro del mismo script.
 
 - De Abyss: pestañas del encabezado (Inicio/Favoritos) en cápsula de vidrio con la
   activa como píldora blanca → `.headerTabs .emby-tab-button*`. (2026-11-26)

@@ -21,6 +21,9 @@ repo/mod, y dónde quedó en `custom.css`.
   sale el tráiler): es el **plugin Media Bar** (`trailerStartDelayMs: 3500`), no el
   CSS. Funciona igual con Nebula (probado en vivo). Si no sale el tráiler: esa
   película no tiene tráiler, o el navegador bloqueó la reproducción automática.
+- Media Bar: la mezcla imagen/tráiler debe ser angosta, alrededor del 24–34 % del
+  ancho (la imagen sólida casi hasta el texto). Original mezclaba del 10 al 34 %.
+  → `--slideshow-video-side-fade` y máscara de `.backdrop.with-video`. (2026-11-26)
 
 ## No me gusta
 - De Nebula: el póster en la ficha sale centrado y tapa la info (título, sinopsis,

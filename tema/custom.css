@@ -40,3 +40,15 @@
   .layout-desktop .homePage .emby-scroller, .layout-desktop .homePage .itemsContainer { overflow-y: visible !important; }
   .layout-desktop .homePage .emby-scroller { padding-top: 1.4em !important; padding-bottom: 1.4em !important; }
 }
+
+/* Media Bar (plugin del carrusel del inicio): mezcla imagen/trailer mas angosta.
+   Original: la imagen (40% del ancho) es solida solo hasta el 12% de la pantalla
+   y el trailer asoma desde el 10% -> se mezclaban del 10% al 34%.
+   Ahora: imagen solida hasta ~24% y la mezcla queda entre ~24% y ~34%. */
+#slides-container {
+  --slideshow-video-side-fade: linear-gradient(to right, transparent 24%, black 33%);
+}
+#slides-container .backdrop.with-video {
+  -webkit-mask-image: var(--slideshow-bottom-fade), linear-gradient(to right, black 60%, transparent 85%) !important;
+  mask-image: var(--slideshow-bottom-fade), linear-gradient(to right, black 60%, transparent 85%) !important;
+}

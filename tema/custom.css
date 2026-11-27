@@ -59,3 +59,39 @@
    El fondo general (.backgroundContainer) ya oscurece lo suficiente para leer. */
 .layout-desktop .itemDetailPage .detailRibbon,
 .layout-desktop .itemDetailPage .detailPagePrimaryContainer { background: transparent !important; }
+
+/* De Abyss (AumGupta/abyss-jellyfin): pestanas del encabezado (Inicio / Favoritos /
+   pestanas de biblioteca) dentro de una capsula de vidrio; la activa es una pildora
+   blanca con texto oscuro. Anula el degradado/raya de Nebula. */
+.headerTabs .emby-tabs-slider {
+  border-radius: 50px; padding: 5px 2.5px;
+  background-color: rgba(42,42,42,.9); border: 1px solid rgba(87,87,87,.18);
+  box-shadow: 0 4px 30px rgba(0,0,0,.1);
+  backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
+}
+.headerTabs .emby-tab-button {
+  padding: .5em 1.5em !important; margin: 0 2.5px !important; border-radius: 50px !important;
+  border: 0 !important; transition: background .37s cubic-bezier(.16,1,.3,1), color .37s cubic-bezier(.16,1,.3,1);
+}
+.headerTabs .emby-tab-button:not(.emby-tab-button-active):hover { background: rgba(255,255,255,.08) !important; color: #fff !important; }
+.headerTabs .emby-tab-button-active,
+.headerTabs .emby-tab-button-active:hover {
+  background: rgb(245,245,247) !important; color: #121212 !important; box-shadow: none !important;
+}
+
+/* De Abyss: boton principal de la ficha como pildora blanca con texto:
+   "Resume" si ya la empezaste (Jellyfin muestra el boton de volver a empezar,
+   .btnReplay) y "Play" si no. Anula el circulo de 3.4em de Nebula. */
+.layout-desktop .itemDetailPage .mainDetailButtons .detailButton.btnPlay {
+  width: auto !important; height: 3em !important; border-radius: 999px !important;
+  padding: .4em 1.4em .4em 1em !important; margin-right: 12px !important;
+  background: rgba(255,255,255,.95) !important; color: #111 !important;
+}
+.layout-desktop .itemDetailPage .mainDetailButtons .detailButton.btnPlay:hover {
+  background: #fff !important; transform: scale(1.03); box-shadow: 0 0 20px rgba(255,255,255,.25) !important;
+}
+.layout-desktop .itemDetailPage .btnPlay .detailButton-content { flex-direction: row !important; display: flex; align-items: center; }
+.layout-desktop .itemDetailPage .btnPlay .detailButton-content::after {
+  content: "Play"; margin-left: .45em; font-weight: 700; font-size: .9em;
+}
+.layout-desktop .itemDetailPage:has(.btnReplay:not(.hide)) .btnPlay .detailButton-content::after { content: "Resume"; }

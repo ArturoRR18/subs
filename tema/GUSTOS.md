@@ -39,6 +39,11 @@ repo/mod, y dónde quedó en `custom.css`.
   3.5 (n00bcodr, instalado 2026-11-26) + `tema/js/poster-play.js` (se sube con
   `py tema_jellyfin.py --js`); estilos `.tjPosterPlay` en `custom.css`.
 
+- De Abyss: pestañas del encabezado (Inicio/Favoritos) en cápsula de vidrio con la
+  activa como píldora blanca → `.headerTabs .emby-tab-button*`. (2026-11-26)
+- De Abyss: botón principal de la ficha como píldora con texto "Play" o "Resume"
+  (Resume si se ve `.btnReplay`, o sea ya empezada) → `.btnPlay ...::after`. (2026-11-26)
+
 ## No me gusta
 - De Nebula: el póster en la ficha sale centrado y tapa la info (título, sinopsis,
   datos). Causa: `.layout-desktop .detailImageContainer { position: relative }`

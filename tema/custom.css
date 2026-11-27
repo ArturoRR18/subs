@@ -18,4 +18,12 @@
    animacion aparecia en medio y luego saltaba a la izquierda. Se pasa la misma animacion
    a .cardBox (dentro de la tarjeta): sube y aparece igual, pero ya en su lugar. */
 .itemDetailPage:not(.hide) .detailImageContainer { animation: none !important; }
-.itemDetailPage:not(.hide) .detailImageContainer .cardBox { animation: nbRise .7s var(--nb-ease) .05s backwards; }
+.itemDetailPage:not(.hide) .detailImageContainer .cardBox { animation: nbRise .35s var(--nb-ease) backwards; }
+
+/* En esta version de Jellyfin el poster esta DENTRO de .infoWrapper, que Nebula anima
+   con nbRise (transform): durante ~0.4 s el poster se ubicaba en medio (x=654) y luego
+   saltaba a la izquierda (x=63) — medido en vivo. .infoWrapper ahora solo se desvanece
+   (sin transform) y el efecto de subir pasa a su contenido, menos al poster. */
+@keyframes nbSoloFade { from { opacity: 0; } to { opacity: 1; } }
+.itemDetailPage:not(.hide) .infoWrapper { animation: nbSoloFade .35s ease backwards !important; }
+.itemDetailPage:not(.hide) .infoWrapper > :not(.detailImageContainer) { animation: nbRise .35s var(--nb-ease) backwards; }

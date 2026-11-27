@@ -19,8 +19,13 @@ repo/mod, y dónde quedó en `custom.css`.
   como en Jellyfin original. (2026-11-26)
 
 - De Nebula: al entrar a la ficha el póster aparecía en medio y luego saltaba a la
-  izquierda. Causa: la animación `nbRise` (transform) en `.detailImageContainer`.
-  Arreglo: la misma animación pasa a `.detailImageContainer .cardBox`. (2026-11-26)
+  izquierda. Causa: en esta versión de Jellyfin el póster está dentro de
+  `.infoWrapper`, que Nebula anima con `nbRise` (transform) → durante ~0.4 s el
+  póster se ubica respecto a esa caja (x=654) y luego salta (x=63). Arreglo:
+  `.infoWrapper` solo se desvanece (`nbSoloFade`) y el "subir" pasa a sus hijos
+  menos el póster; el póster sube con `.cardBox`. Verificado en vivo: x=63 desde
+  el primer instante. (2026-11-26)
 
-## Pendiente
-- Confirmar que el póster ya entra directo a la izquierda.
+## Notas para probar
+- Al medir en el navegador, recarga la página de verdad (no solo cambiar el `#`):
+  si no, sigue con el CSS viejo.

@@ -12,6 +12,16 @@ repo/mod, y dónde quedó en `custom.css`.
 - De Nebula: cómo se ven los menús → se conserva tal cual (`@import`).
 - De Nebula: la ficha de película/serie (detalle) → se conserva tal cual.
 
+- De JellyFlix: títulos como logo distinto por película → Nebula ya lo hace; se
+  quitó la opción `titulo-en-texto` (que lo cambiaba por texto). En el inicio lo
+  pone el plugin Media Bar. (2026-11-26)
+- De JellyFlix: "pop-up" al pasar el cursor → `.card:hover .cardBox { scale(1.15) }`
+  + espacio en las filas para que no se corte. (2026-11-26)
+- Carrusel del inicio (imagen fija → a los 3.5 s la imagen se va a la izquierda y
+  sale el tráiler): es el **plugin Media Bar** (`trailerStartDelayMs: 3500`), no el
+  CSS. Funciona igual con Nebula (probado en vivo). Si no sale el tráiler: esa
+  película no tiene tráiler, o el navegador bloqueó la reproducción automática.
+
 ## No me gusta
 - De Nebula: el póster en la ficha sale centrado y tapa la info (título, sinopsis,
   datos). Causa: `.layout-desktop .detailImageContainer { position: relative }`

@@ -1,6 +1,5 @@
 @import url('https://cdn.jsdelivr.net/gh/nemesbak/jellyfin-nebula@main/nebula.css');
 @import url('https://cdn.jsdelivr.net/gh/nemesbak/jellyfin-nebula@main/opciones/cabecera-minima.css');
-@import url('https://cdn.jsdelivr.net/gh/nemesbak/jellyfin-nebula@main/opciones/titulo-en-texto.css');
 @import url('https://cdn.jsdelivr.net/gh/nemesbak/jellyfin-nebula@main/opciones/tarjetas-texto-centrado.css');
 @import url('https://cdn.jsdelivr.net/gh/nemesbak/jellyfin-nebula@main/opciones/acento-blanco.css');
 
@@ -27,3 +26,17 @@
 @keyframes nbSoloFade { from { opacity: 0; } to { opacity: 1; } }
 .itemDetailPage:not(.hide) .infoWrapper { animation: nbSoloFade .35s ease backwards !important; }
 .itemDetailPage:not(.hide) .infoWrapper > :not(.detailImageContainer) { animation: nbRise .35s var(--nb-ease) backwards; }
+
+/* De JellyFlix (@zakariaa/jellyflix): "pop-up" al pasar el cursor sobre una
+   pelicula/serie — la tarjeta entera crece y queda encima de las vecinas.
+   Reemplaza el "subir 4px" de Nebula. Solo con mouse (no en TV ni tactil). */
+@media (hover: hover) and (pointer: fine) {
+  .layout-desktop .card .cardBox { transition: transform .3s var(--nb-ease) !important; }
+  .layout-desktop .card:hover { position: relative; z-index: 20 !important; }
+  .layout-desktop .card:hover .cardBox { transform: scale(1.15) !important; }
+  .layout-desktop .card:hover .cardScalable { transform: none !important; box-shadow: 0 14px 34px rgba(0,0,0,.8) !important; }
+  .layout-desktop .verticalSection:hover { position: relative; z-index: 15; }
+  /* espacio arriba/abajo de cada fila para que la tarjeta crecida no se corte */
+  .layout-desktop .homePage .emby-scroller, .layout-desktop .homePage .itemsContainer { overflow-y: visible !important; }
+  .layout-desktop .homePage .emby-scroller { padding-top: 1.4em !important; padding-bottom: 1.4em !important; }
+}

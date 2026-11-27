@@ -102,6 +102,12 @@ con `py tema_jellyfin.py --aplicar` (respalda antes; `--restaurar` vuelve atrás
 - Lo que no pasa la revisión **se queda donde está** y se lista en
   `<CARPETA_ENTRADA>\SIN_SUBTITULOS.txt`.
 
+## NAS por VPN (`NAS_ALTERNO`)
+Si en `RUTAS.txt` está `NAS_ALTERNO=<host o IP>` (ej. la IP de Tailscale del NAS) y el
+host de `CARPETA_ENTRADA`/`BIBLIOTECA_PELICULAS`/`JELLYFIN_URL` no responde, `leer_rutas()`
+cambia ese host por el alterno en las tres claves y avisa en la salida. En la red de casa
+no cambia nada.
+
 ## Requisitos
 - Python 3.10+
 - `ffprobe` (viene con FFmpeg) — en el PATH o en `FFPROBE` de `RUTAS.txt`.

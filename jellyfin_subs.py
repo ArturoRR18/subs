@@ -76,6 +76,43 @@ def leer_rutas() -> dict[str, str]:
             continue
         k, v = linea.split("=", 1)
         rutas[k.strip()] = v.strip().strip('"')
+    return usar_nas_alterno(rutas)
+
+
+# Claves cuyo host es el NAS (ruta UNC \\host\... o URL http://host:puerto)
+CLAVES_NAS = ("CARPETA_ENTRADA", "BIBLIOTECA_PELICULAS", "JELLYFIN_URL")
+_HOST_RE = re.compile(r"^(\\\\|[a-z]+://)([^\\/:]+)", re.I)
+
+
+def _host_responde(host: str, puertos=(445, 80, 443, 8096, 8899), espera: float = 1.5) -> bool:
+    import socket
+    for p in puertos:
+        try:
+            with socket.create_connection((host, p), timeout=espera):
+                return True
+        except OSError:
+            continue
+    return False
+
+
+def usar_nas_alterno(rutas: dict[str, str]) -> dict[str, str]:
+    """Si el NAS principal no responde y hay NAS_ALTERNO (ej. IP de Tailscale/VPN),
+    cambia el host en CARPETA_ENTRADA, BIBLIOTECA_PELICULAS y JELLYFIN_URL."""
+    alterno = rutas.get("NAS_ALTERNO", "").strip().strip("\\/")
+    if not alterno:
+        return rutas
+    hosts = {m.group(2) for k in CLAVES_NAS if (m := _HOST_RE.match(rutas.get(k, "")))}
+    if not hosts or alterno in hosts:
+        return rutas
+    principal = next(iter(hosts))
+    if _host_responde(principal) or not _host_responde(alterno):
+        return rutas
+    for k in CLAVES_NAS:
+        v = rutas.get(k, "")
+        m = _HOST_RE.match(v)
+        if m and m.group(2) in hosts:
+            rutas[k] = m.group(1) + alterno + v[m.end():]
+    print(f"AVISO: el NAS {principal} no responde; uso NAS_ALTERNO {alterno}", file=sys.stderr)
     return rutas
 
 

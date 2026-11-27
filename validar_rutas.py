@@ -18,7 +18,7 @@ RUTAS_TXT = RAIZ / "RUTAS.txt"
 RUTAS_EXAMPLE = RAIZ / "RUTAS.txt.example"
 OPCIONALES_EN_PATH = {"FFPROBE": "ffprobe", "FFMPEG": "ffmpeg"}
 NO_SON_RUTAS = {"OPENSUBTITLES_USUARIO", "OPENSUBTITLES_CLAVE",   # credenciales y URLs opcionales
-                "JELLYFIN_URL", "JELLYFIN_API_KEY", "WHISPER_MODELO"}
+                "JELLYFIN_URL", "JELLYFIN_API_KEY", "WHISPER_MODELO", "NAS_ALTERNO"}
 
 
 def elegir(clave: str, actual: str) -> str | None:

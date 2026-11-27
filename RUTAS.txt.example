@@ -25,3 +25,7 @@ FFMPEG=
 # Modelo de Whisper para --generar (opcional). Por defecto large-v3-turbo.
 # En una GPU con poca VRAM usa medium o small.
 WHISPER_MODELO=
+
+# Host alterno del NAS (ej. IP de Tailscale/VPN). Si el host de CARPETA_ENTRADA,
+# BIBLIOTECA_PELICULAS y JELLYFIN_URL no responde, los scripts usan este. Opcional.
+NAS_ALTERNO=

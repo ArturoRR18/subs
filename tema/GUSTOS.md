@@ -41,9 +41,11 @@ volver: "recarga mi tema" (`--aplicar` + `--js`).
   logos + pop-up + mezcla Media Bar angosta. Es el "último tema" que se recarga con
   `py tema_jellyfin.py --aplicar`.
 - **tema-v2** (git tag, 2026-11-26): v1 + sin franja oscura bajo el título + botón
-  ▶ en el póster (solo al pasar el cursor). Es el "último tema": `--aplicar` (CSS)
+  ▶ en el póster (solo al pasar el cursor). Reemplazado por v3. `--aplicar` (CSS)
   y `--js` (botón). El botón trae su propio estilo y sigue activo aunque pruebes
   otro CSS; para quitarlo, desactiva `tema/poster-play.js` en JavaScript Injector.
+- **tema-v3** (git tag, 2026-11-26): v2 + pestañas Inicio/Favoritos en cápsula y
+  botón Play/Resume en píldora (de Abyss). **Es el "último tema"**: `--aplicar` + `--js`.
 
 ## Me gusta
 - De Nebula: cómo se ven los menús → se conserva tal cual (`@import`).

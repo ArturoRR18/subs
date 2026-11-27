@@ -59,3 +59,21 @@
    El fondo general (.backgroundContainer) ya oscurece lo suficiente para leer. */
 .layout-desktop .itemDetailPage .detailRibbon,
 .layout-desktop .itemDetailPage .detailPagePrimaryContainer { background: transparent !important; }
+
+/* Boton Play sobre el poster de la ficha (lo agrega tema/js/poster-play.js,
+   plugin JavaScript Injector). Solo aparece si la ficha tiene boton Play. */
+.itemDetailPage .detailImageContainer .tjPosterPlay {
+  position: absolute; inset: 0; z-index: 3; display: none;
+  align-items: center; justify-content: center; pointer-events: none;
+  background: radial-gradient(circle at center, rgba(0,0,0,.35), rgba(0,0,0,0) 60%);
+  opacity: .85; transition: opacity .25s ease;
+}
+.itemDetailPage .detailImageContainer .card.tjJugable { cursor: pointer; }
+.itemDetailPage .detailImageContainer .card.tjJugable .tjPosterPlay { display: flex; }
+.itemDetailPage .detailImageContainer .tjPosterPlay .material-icons {
+  font-size: 3.2em; width: 1.6em; height: 1.6em; display: flex; align-items: center; justify-content: center;
+  border-radius: 50%; color: #000; background: rgba(255,255,255,.92);
+  box-shadow: 0 10px 30px rgba(0,0,0,.55); transition: transform .25s var(--nb-ease);
+}
+.itemDetailPage .detailImageContainer .card.tjJugable:hover .tjPosterPlay { opacity: 1; }
+.itemDetailPage .detailImageContainer .card.tjJugable:hover .tjPosterPlay .material-icons { transform: scale(1.12); }

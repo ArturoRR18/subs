@@ -4,6 +4,7 @@
     py tema_jellyfin.py --fuentes [URL ...]    # baja el CSS de cada @import (o URL dada) a tema/fuentes/
     py tema_jellyfin.py --aplicar [archivo]    # respalda y sube tema/custom.css (o el archivo dado)
     py tema_jellyfin.py --restaurar [archivo]  # sube un respaldo (por defecto el mas reciente)
+    py tema_jellyfin.py --js                   # sube tema/js/*.js al plugin JavaScript Injector
 
 Usa JELLYFIN_URL + JELLYFIN_API_KEY de RUTAS.txt (la clave de API tiene permisos de admin).
 Los respaldos van a tema/respaldos/ (gitignored) antes de cada cambio: nada se pierde.
@@ -27,6 +28,29 @@ RESPALDOS = BASE / "respaldos"
 FUENTES = BASE / "fuentes"
 RE_IMPORT = re.compile(r"""@import\s+(?:url\()?\s*['"]?([^'")\s;]+)['"]?\s*\)?[^;]*;""")
 RE_COMENTARIO = re.compile(r"/\*.*?\*/", re.S)
+JS = BASE / "js"
+PREFIJO_JS = "tema/"   # nombre de las entradas que maneja este script en JavaScript Injector
+
+
+def subir_js(jf: Jellyfin) -> None:
+    """Sincroniza tema/js/*.js con las entradas 'tema/<archivo>' de JavaScript Injector.
+    No toca los scripts que no empiezan con 'tema/' (los que agregues a mano)."""
+    plugin = next((p for p in jf.pedir("/Plugins") if p["Name"] == "JavaScript Injector"), None)
+    if not plugin:
+        sys.exit("Falta el plugin JavaScript Injector en Jellyfin")
+    ruta = f"/Plugins/{plugin['Id']}/Configuration"
+    cfg = jf.pedir(ruta)
+    RESPALDOS.mkdir(parents=True, exist_ok=True)
+    (RESPALDOS / f"js_{time.strftime('%Y%m%d_%H%M%S')}.json").write_text(json.dumps(cfg, indent=1), encoding="utf-8")
+    otros = [e for e in cfg.get("CustomJavaScripts", []) if not e.get("Name", "").startswith(PREFIJO_JS)]
+    nuevos = [{"Name": PREFIJO_JS + f.name, "Script": f.read_text(encoding="utf-8"), "Enabled": True,
+               "RequiresAuthentication": False} for f in sorted(JS.glob("*.js"))]
+    cfg["CustomJavaScripts"] = otros + nuevos
+    req = urllib.request.Request(jf.url + ruta, method="POST", data=json.dumps(cfg).encode("utf-8"),
+                                 headers={"X-Emby-Token": jf.clave, "Content-Type": "application/json"})
+    urllib.request.urlopen(req, timeout=60).close()
+    print(f"JavaScript Injector: {len(nuevos)} script(s) del tema ({', '.join(e['Name'] for e in nuevos)}). "
+          "Recarga Jellyfin con Ctrl+F5.")
 
 
 def conectar() -> Jellyfin:
@@ -97,7 +121,12 @@ def main() -> int:
     g.add_argument("--fuentes", nargs="*", metavar="URL")
     g.add_argument("--aplicar", nargs="?", const=str(BASE / "custom.css"), metavar="ARCHIVO")
     g.add_argument("--restaurar", nargs="?", const="", metavar="ARCHIVO")
+    g.add_argument("--js", action="store_true")
     a = ap.parse_args()
+
+    if a.js:
+        subir_js(conectar())
+        return 0
 
     if a.fuentes is not None:
         urls = a.fuentes

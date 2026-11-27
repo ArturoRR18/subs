@@ -30,6 +30,11 @@ repo/mod, y dónde quedó en `custom.css`.
   ancho (la imagen sólida casi hasta el texto). Original mezclaba del 10 al 34 %.
   → `--slideshow-video-side-fade` y máscara de `.backdrop.with-video`. (2026-11-26)
 
+- Botón ▶ sobre el póster de la ficha (película, serie, capítulo): clic = el botón
+  Play/Reanudar de la ficha. Necesita JavaScript → plugin **JavaScript Injector**
+  3.5 (n00bcodr, instalado 2026-11-26) + `tema/js/poster-play.js` (se sube con
+  `py tema_jellyfin.py --js`); estilos `.tjPosterPlay` en `custom.css`.
+
 ## No me gusta
 - De Nebula: el póster en la ficha sale centrado y tapa la info (título, sinopsis,
   datos). Causa: `.layout-desktop .detailImageContainer { position: relative }`

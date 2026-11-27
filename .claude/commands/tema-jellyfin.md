@@ -53,8 +53,9 @@ recursivamente los que tengan dentro) · `--aplicar [archivo]` (por defecto
 ## Cuidado
 - Jellyfin tiene web, app de TV y apps móviles; el CSS personalizado solo afecta
   la web (y las apps que la usan, como Jellyfin Media Player / Android TV web).
-  Avísame si algo que pido no se puede con CSS (p. ej. cambiar textos o agregar
-  botones → necesita un plugin o JavaScript, que es otro tema).
+  Si algo no se puede con CSS (agregar botones, cambiar comportamiento), usa
+  JavaScript: archivos en `tema\js\*.js`, subidos con `py tema_jellyfin.py --js` al
+  plugin JavaScript Injector (ya instalado). Solo maneja las entradas `tema/...`.
 - Prefiere versiones fijas (`@v1.2.3` o un commit) a `@main`/`@latest` en los
   `@import`: si el autor cambia el repo, mi tema no se rompe solo. Si fijas una,
   avísame.

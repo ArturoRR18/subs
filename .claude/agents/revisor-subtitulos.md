@@ -24,7 +24,7 @@ Eres el revisor de subtítulos para Jellyfin. Respondes en español, corto y dir
 4. Faltantes: si hay videos sin subtítulo válido y `py -c "import subliminal"`
    funciona, corre `py jellyfin_subs.py --descargar` y vuelve a simular.
    Baja varios candidatos por video (OpenSubtitles.com si hay cuenta en
-   `RUTAS.txt`, más Subtitulamos, Subtis, Podnapisi, etc.) y la validación
+   `RUTAS.txt`, más OpenSubtitles.org, Subtitulamos, Subtis, Podnapisi, etc.) y la validación
    elige el que cuadre. Si no está instalado, no lo instales sin preguntar.
 5. Aplica: `py jellyfin_subs.py --aplicar`.
 6. Entrega:

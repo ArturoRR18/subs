@@ -67,7 +67,7 @@ Para películas que YA están en la biblioteca de Jellyfin (`BIBLIOTECA_PELICULA
   - Siempre quita marcas `[cite: N]` de generadores automáticos.
 - **Descarga** (`--descargar`): baja hasta 4 candidatos por video (latino primero)
   de OpenSubtitles.com (si hay `OPENSUBTITLES_USUARIO`/`CLAVE` en `RUTAS.txt`),
-  Subtitulamos, Subtis, Podnapisi, Gestdown, Addic7ed, TVsubtitles y BSPlayer.
+  OpenSubtitles.org (sin cuenta), Subtitulamos, Subtis, Podnapisi, Gestdown, Addic7ed, TVsubtitles y BSPlayer.
   Subdivx bloquea el acceso automatizado, no se usa.
 - **Generación con Whisper** (`--generar`, último recurso, necesita GPU): para los
   videos que siguen sin subtítulo, `whisper_subs.py` extrae el audio con ffmpeg y

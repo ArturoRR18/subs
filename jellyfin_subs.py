@@ -57,7 +57,8 @@ CACHE_SYNC = Path(tempfile.gettempdir()) / "jellyfin_subs_sync"
 
 # Proveedores de subliminal (subtitulamos y subtis son de habla hispana).
 # opensubtitlescom se agrega si hay usuario/clave en RUTAS.txt.
-PROVEEDORES = ["podnapisi", "gestdown", "addic7ed", "tvsubtitles", "bsplayer", "subtitulamos", "subtis"]
+# opensubtitles = OpenSubtitles.org (API XML-RPC, funciona sin cuenta).
+PROVEEDORES = ["opensubtitles", "podnapisi", "gestdown", "addic7ed", "tvsubtitles", "bsplayer", "subtitulamos", "subtis"]
 DESCARGAS_POR_VIDEO = 4       # baja varios por si el mejor puntuado viene roto
 
 # Subtitulos hechos por nosotros con Whisper (--generar): se reconocen por el nombre

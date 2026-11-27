@@ -18,6 +18,9 @@ JELLYFIN_API_KEY=
 # Carpeta de red que Jellyfin usa como biblioteca de peliculas (para ordenar_biblioteca.py)
 BIBLIOTECA_PELICULAS=\\<IP-DEL-NAS>\<carpeta>\peliculas
 
+# Carpeta de red que Jellyfin usa como biblioteca de series (para ordenar_biblioteca.py)
+BIBLIOTECA_SERIES=\\<IP-DEL-NAS>\<carpeta>\series
+
 # ffmpeg.exe (opcional). Solo hace falta para --generar (extraer el audio).
 # Si esta junto a ffprobe o en el PATH, dejalo vacio.
 FFMPEG=
@@ -27,5 +30,5 @@ FFMPEG=
 WHISPER_MODELO=
 
 # Host alterno del NAS (ej. IP de Tailscale/VPN). Si el host de CARPETA_ENTRADA,
-# BIBLIOTECA_PELICULAS y JELLYFIN_URL no responde, los scripts usan este. Opcional.
+# BIBLIOTECA_PELICULAS/SERIES y JELLYFIN_URL no responde, los scripts usan este. Opcional.
 NAS_ALTERNO=

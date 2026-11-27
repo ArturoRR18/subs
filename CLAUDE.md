@@ -13,11 +13,13 @@ subagente `revisor-subtitulos` (`.claude/agents/revisor-subtitulos.md`), que hac
 
 1. Lee `CARPETA_ENTRADA` de `RUTAS.txt` (si escribo otra ruta, usa esa con `--carpeta`).
 2. Simulación: `py jellyfin_subs.py` → revisa el reporte.
-3. Si hay videos sin subtítulo válido y `subliminal` está instalado:
-   `py jellyfin_subs.py --descargar` (latino primero, luego español) y vuelve a simular.
+3. Si hay videos sin subtítulo válido: `py jellyfin_subs.py --descargar --traducir`
+   y vuelve a simular. Cadena: latino → castellano → **inglés traducido** →
+   **italiano traducido** (ver "Traducción" abajo). Lo que no consiga nada de eso
+   queda en `SIN_SUBTITULOS.txt` (para "crea subtítulos").
 4. Aplica: `py jellyfin_subs.py --aplicar` (no hace falta pedirme luz verde).
-5. Me entrega el resumen: cuántos pasaron a `REV_SUBTITULOS`, y la lista de
-   `SIN_SUBTITULOS.txt` con el motivo de cada uno.
+5. Me entrega el resumen: cuántos pasaron a `REV_SUBTITULOS` (y cuáles van con
+   sub traducido), y la lista de `SIN_SUBTITULOS.txt` con el motivo de cada uno.
 
 ## Comando: "verificar jellyfin"
 Después de mover `REV_SUBTITULOS` a la biblioteca: `py verificar_jellyfin.py --escanear
@@ -27,22 +29,34 @@ Jellyfin ya lo leyó y aparece en el menú — no hace falta probarlos uno a uno
 con audio en español también cuenta como OK. Ojo: Jellyfin muestra el título traducido
 (ej. "Avatar: Los Siete Refugios"); `--buscar` también busca en la ruta.
 
-## Comando: "ordenar biblioteca"
-Para películas que YA están en la biblioteca de Jellyfin (`BIBLIOTECA_PELICULAS` en
-`RUTAS.txt` = la carpeta de red que Jellyfin ve como biblioteca de películas):
-`py ordenar_biblioteca.py [--todas] [--descargar] [--aplicar] [--buscar "<texto>"]`.
-- Sin `--todas`: solo las que Jellyfin ve sin sub/audio en español. Con `--todas`: también
-  las que no siguen la convención.
-- Busca el título en TMDB vía Jellyfin. Se queda con el título exacto, luego con el
-  id que Jellyfin ya tenía y luego con el año exacto. Si no hay coincidencia, no adivina:
-  la deja en "REVISAR A MANO".
-- Busca subs en español en la carpeta y sus subcarpetas (`Subs\spa.srt`,
+## Comando: "revisa jellyfin"
+Cuando yo escriba **"revisa jellyfin"** (o `/revisa-jellyfin`; antes "ordenar biblioteca"),
+sigue `.claude/commands/revisa-jellyfin.md` en esta conversación: verificar → conseguir
+subs → renombrar → reescanear. Trabaja sobre lo que YA está en Jellyfin
+(`BIBLIOTECA_PELICULAS` y `BIBLIOTECA_SERIES` en `RUTAS.txt` = las carpetas de red que
+Jellyfin ve como bibliotecas):
+`py ordenar_biblioteca.py [--todas] [--descargar] [--traducir] [--generar] [--aplicar]
+[--solo peliculas|series] [--buscar "<texto>"]`.
+- Sin `--todas`: solo lo que Jellyfin ve sin sub/audio en español. Con `--todas`: también
+  lo que no sigue la convención, y renombra carpetas de series sin `[tmdbid-N]`.
+- Películas: busca el título en TMDB vía Jellyfin. Se queda con el título exacto, luego
+  con el id que Jellyfin ya tenía y luego con el año exacto. Si no hay coincidencia, no
+  adivina: la deja en "REVISAR A MANO". Las carpetas con varios videos (sagas, partes)
+  se revisan a mano.
+- Series: si la carpeta ya trae `[tmdbid-N]` no la toca; solo acomoda el episodio en
+  `Season XX\<Serie> SxxEyy.ext`.
+- Busca subs en la carpeta y subcarpetas (`Subs\spa.srt`, `Subs\<episodio>\2_English.srt`,
   `*-spanish-yify\`, `.srt` sin código de idioma). Ignora otros idiomas por su nombre
-  (`por`, `cat`, `ita`…) y los valida con las reglas de abajo.
-- Renombra en su lugar: `Titulo (Año) [tmdbid-N]\Titulo (Año).ext` + `.spa.srt`
-  (+ `.eng.srt` si había uno en inglés). Borra los candidatos de `--descargar` que no se
-  eligieron. Las carpetas con varios videos (sagas, partes) se revisan a mano.
+  (`por`, `cat`, `fre`…); inglés e italiano se usan como fuente para traducir.
+- Renombra en su lugar: `.spa.srt` (+ `.eng/.ita.srt` con el original del traducido o el
+  inglés que ya había). Borra los candidatos de `--descargar`/`--traducir` que no se eligieron.
 - Ojo: Jellyfin trata la ruta nueva como otro elemento (se pierde el "visto").
+
+## Comando: "crea subtítulos"
+Cuando yo escriba **"crea subtítulos"** (o `/crea-subtitulos`), sigue
+`.claude/commands/crea-subtitulos.md`: último recurso con Whisper (`--generar`) para lo
+que siguió sin subtítulo, en `S-REV` (`jellyfin_subs.py`) y/o en la biblioteca
+(`ordenar_biblioteca.py`). Solo en la PC con GPU NVIDIA.
 
 ## Comando: "tema jellyfin"
 Cuando yo escriba **"tema jellyfin"** (o `/tema-jellyfin`), sigue
@@ -52,7 +66,10 @@ es un ida y vuelta conmigo). Junta lo que me gusta de varios temas/mods CSS en
 con `py tema_jellyfin.py --aplicar` (respalda antes; `--restaurar` vuelve atrás).
 
 ## Reglas del proceso
-- **Idioma:** prioridad `es-419` (latino) > `es` (castellano). Inglés u otro idioma = no válido.
+- **Idioma:** prioridad `es-419` (latino) > `es` (castellano) > inglés traducido >
+  italiano traducido > Whisper (solo con "crea subtítulos"). Otros idiomas = no válido.
+  Detecta el idioma por el texto (y el alfabeto: un sub coreano/chino/ruso en
+  codificación vieja se lee bien y se descarta con su idioma real).
 - **Válido contra el video** (lo compara con la duración de `ffprobe`):
   - el último diálogo termina entre el 60 % de la duración y +3 min después;
   - el primer diálogo no aparece después del 25 % del video;
@@ -76,13 +93,24 @@ con `py tema_jellyfin.py --aplicar` (respalda antes; `--restaurar` vuelve atrás
   de OpenSubtitles.com (si hay `OPENSUBTITLES_USUARIO`/`CLAVE` en `RUTAS.txt`),
   OpenSubtitles.org (sin cuenta), Subtitulamos, Subtis, Podnapisi, Gestdown, Addic7ed, TVsubtitles y BSPlayer.
   Subdivx bloquea el acceso automatizado, no se usa.
+- **Traducción** (`--traducir`): si no hay sub en español, toma uno en inglés (o, si no
+  hay, italiano) que **cuadre con el video** con las mismas reglas de tiempos: externo,
+  en `Subs\<episodio>\`, pista interna del `.mkv` (la extrae) o, con `--descargar`,
+  bajado (2 candidatos). Lo traduce con `traducir_subs.py` (Opus-MT/Argos en CPU, sin
+  internet; italiano pasa por inglés porque no hay modelo directo it→es) y escribe
+  `<original>.traducido.es.srt` con los tiempos idénticos. Cambia vocabulario de España
+  a latino (vosotros→ustedes, coche→auto, ordenador→computadora…).
+  - Se guarda como `.spa.srt`; el original queda junto como `.eng.srt` / `.ita.srt`.
+  - En el reporte sale "traducido del inglés (revisar: traducción automática)". Puntúa
+    por debajo de cualquier sub humano en español y por encima de Whisper.
+  - Calidad de traductor automático: literal, a veces se equivoca con modismos.
+  - Modelos en `modelos\` (gitignored); se bajan solos la primera vez (~90 MB c/u).
 - **Generación con Whisper** (`--generar`, último recurso, necesita GPU): para los
   videos que siguen sin subtítulo, `whisper_subs.py` extrae el audio con ffmpeg y
   lo transcribe con faster-whisper (`large-v3-turbo`; cambia con `WHISPER_MODELO`
   en `RUTAS.txt`). Si el audio ya está en español transcribe directo; si está en
-  inglés traduce línea por línea con el modelo Opus-MT/Argos en
-  `modelos\traductor-en-es` (CPU, no pelea por la VRAM). Otros idiomas no se
-  traducen: quedan en `SIN_SUBTITULOS.txt`.
+  inglés o italiano traduce línea por línea con `traducir_subs.py` (CPU, no pelea
+  por la VRAM). Otros idiomas no se traducen: quedan en `SIN_SUBTITULOS.txt`.
   - El archivo se llama `<video>.whisper.es.srt` y pasa por la misma validación.
     En el reporte sale como "generado con Whisper", y puntúa por debajo de
     cualquier subtítulo humano (si aparece uno real, gana el real).
@@ -104,8 +132,8 @@ con `py tema_jellyfin.py --aplicar` (respalda antes; `--restaurar` vuelve atrás
 
 ## NAS por VPN (`NAS_ALTERNO`)
 Si en `RUTAS.txt` está `NAS_ALTERNO=<host o IP>` (ej. la IP de Tailscale del NAS) y el
-host de `CARPETA_ENTRADA`/`BIBLIOTECA_PELICULAS`/`JELLYFIN_URL` no responde, `leer_rutas()`
-cambia ese host por el alterno en las tres claves y avisa en la salida. En la red de casa
+host de `CARPETA_ENTRADA`/`BIBLIOTECA_PELICULAS`/`BIBLIOTECA_SERIES`/`JELLYFIN_URL` no responde, `leer_rutas()`
+cambia ese host por el alterno en esas claves y avisa en la salida. En la red de casa
 no cambia nada.
 
 ## Requisitos
@@ -113,11 +141,11 @@ no cambia nada.
 - `ffprobe` (viene con FFmpeg) — en el PATH o en `FFPROBE` de `RUTAS.txt`.
 - Opcional para descargar: `py -m pip install subliminal`
 - Opcional para sincronizar: `py -m pip install ffsubsync` (usa `ffmpeg` del PATH)
+- Para traducir (`--traducir`): `py -m pip install ctranslate2 sentencepiece` (los modelos
+  se bajan solos a `modelos\`).
 - Opcional para generar (`--generar`, solo en la PC con GPU NVIDIA):
   `py -m pip install faster-whisper nvidia-cublas-cu12 nvidia-cudnn-cu12 sentencepiece`
-  y el traductor en `modelos\translate-en_es-1_0.argosmodel`
-  (`https://argos-net.com/v1/translate-en_es-1_0.argosmodel`; `modelos\` está en
-  `.gitignore`, hay que bajarlo en cada máquina). Sin GPU cae a CPU y tarda mucho.
+  (el traductor es el mismo de `--traducir`). Sin GPU cae a CPU y tarda mucho.
 - **Usa siempre `py`, no `python`:** el lanzador `py` elige el Python instalado
   aunque otro programa (p. ej. Inkscape) meta su propio `python.exe` en el PATH
   del sistema, que no maneja bien las rutas de red del NAS.

@@ -4,7 +4,7 @@
 Uso:
   py jellyfin_subs.py                 # revisa CARPETA_ENTRADA (de RUTAS.txt) en modo simulacion
   py jellyfin_subs.py --aplicar       # ejecuta: renombra, crea carpetas y mueve a REV_SUBTITULOS
-  py jellyfin_subs.py --carpeta "C:\\ruta" [--aplicar] [--descargar] [--generar]
+  py jellyfin_subs.py --carpeta "C:\\ruta" [--aplicar] [--descargar] [--traducir] [--generar]
 
 Flujo por cada video:
   1. Busca subtitulos externos que le correspondan (mismo nombre, mismo episodio,
@@ -13,9 +13,12 @@ Flujo por cada video:
      duracion cuadre con la del video (ffprobe).
   3. Si un subtitulo en espanol falla por tiempos, intenta rescatarlo: reacomoda
      las lineas con horas imposibles y, si no basta, lo sincroniza con ffsubsync.
-  4. Con --generar, si no quedo ninguno valido, transcribe el audio con Whisper
+  4. Con --traducir, si no hay ninguno en espanol, toma un subtitulo en ingles (o
+     italiano) que cuadre con el video y lo traduce (traducir_subs.py); con
+     --descargar tambien los baja. El original se guarda como .eng/.ita.
+  5. Con --generar, si sigue sin ninguno valido, transcribe el audio con Whisper
      (whisper_subs.py, GPU) y traduce al espanol si el audio esta en ingles.
-  5. Valido  -> lo mueve a REV_SUBTITULOS con estructura y nombres de Jellyfin.
+  6. Valido  -> lo mueve a REV_SUBTITULOS con estructura y nombres de Jellyfin.
      Invalido -> lo deja donde esta y lo agrega a SIN_SUBTITULOS.txt.
 """
 from __future__ import annotations
@@ -63,6 +66,17 @@ DESCARGAS_POR_VIDEO = 4       # baja varios por si el mejor puntuado viene roto
 
 # Subtitulos hechos por nosotros con Whisper (--generar): se reconocen por el nombre
 MARCA_GENERADO = ".whisper"
+# Traducidos de otro idioma (--traducir): "<original>.traducido.es.srt"
+MARCA_TRADUCIDO = ".traducido"
+
+# Idiomas que sirven de fuente para traducir, en orden de preferencia, y su sufijo
+# ISO 639-2 para Jellyfin cuando se guarda el original junto al traducido.
+IDIOMAS_FUENTE = ("en", "it")
+SUFIJO_FUENTE = {"en": "eng", "it": "ita"}
+DESCARGAS_FUENTE = 2          # menos que en espanol: solo hace falta uno que cuadre
+NOMBRE_IDIOMA = {"en": "ingles", "it": "italiano", "ko": "coreano", "ja": "japones", "zh": "chino",
+                 "ru": "ruso", "ar": "arabe", "he": "hebreo", "el": "griego", "th": "tailandes"}
+CARPETAS_SUBS = ("subs", "subtitles", "subtitulos", "sub")
 
 # --------------------------------------------------------------------------- utilidades
 
@@ -80,7 +94,7 @@ def leer_rutas() -> dict[str, str]:
 
 
 # Claves cuyo host es el NAS (ruta UNC \\host\... o URL http://host:puerto)
-CLAVES_NAS = ("CARPETA_ENTRADA", "BIBLIOTECA_PELICULAS", "JELLYFIN_URL")
+CLAVES_NAS = ("CARPETA_ENTRADA", "BIBLIOTECA_PELICULAS", "BIBLIOTECA_SERIES", "JELLYFIN_URL")
 _HOST_RE = re.compile(r"^(\\\\|[a-z]+://)([^\\/:]+)", re.I)
 
 
@@ -97,7 +111,7 @@ def _host_responde(host: str, puertos=(445, 80, 443, 8096, 8899), espera: float 
 
 def usar_nas_alterno(rutas: dict[str, str]) -> dict[str, str]:
     """Si el NAS principal no responde y hay NAS_ALTERNO (ej. IP de Tailscale/VPN),
-    cambia el host en CARPETA_ENTRADA, BIBLIOTECA_PELICULAS y JELLYFIN_URL."""
+    cambia el host en CARPETA_ENTRADA, BIBLIOTECA_PELICULAS/SERIES y JELLYFIN_URL."""
     alterno = rutas.get("NAS_ALTERNO", "").strip().strip("\\/")
     if not alterno:
         return rutas
@@ -237,6 +251,15 @@ PAL_ES = {"que", "de", "no", "la", "el", "en", "y", "es", "los", "se", "lo", "po
           "las", "del", "al", "hay", "estoy", "puedo", "quiero", "vamos", "nada", "todo", "donde"}
 PAL_EN = {"the", "you", "i", "to", "and", "a", "it", "is", "that", "of", "what", "in", "me", "this",
           "we", "he", "for", "my", "your", "be", "have", "do", "are", "was", "not", "with", "just", "don"}
+# solo palabras que no existen (o casi no se usan) en espanol
+PAL_IT = {"che", "non", "il", "sono", "ho", "cosa", "questo", "questa", "sei", "perche", "anche", "qui",
+          "gli", "hai", "della", "sto", "andiamo", "grazie", "niente", "tutto", "voglio", "posso", "allora",
+          "adesso", "bene", "nel", "molto", "fatto", "sta", "dobbiamo", "stai", "lui", "lei", "io", "ci"}
+# escrituras no latinas: un sub en coreano trae algo de ingles (creditos, nombres)
+# y por palabras saldria "ingles"; se mira primero el alfabeto.
+ESCRITURAS = [("ko", r"[\uac00-\ud7af\u1100-\u11ff]"), ("ja", r"[\u3040-\u30ff]"), ("zh", r"[\u4e00-\u9fff]"),
+              ("ru", r"[\u0400-\u04ff]"), ("ar", r"[\u0600-\u06ff]"), ("he", r"[\u0590-\u05ff]"),
+              ("el", r"[\u0370-\u03ff]"), ("th", r"[\u0e00-\u0e7f]")]
 PAL_ESPANA = {"vosotros", "vosotras", "os", "vale", "tio", "tia", "ordenador", "gilipollas", "joder",
               "habeis", "teneis", "sois", "estais", "quereis", "podeis", "vais", "hostia", "coger",
               "movil", "chaval", "guay", "venga", "conducir", "zumo", "coche", "mola"}
@@ -254,13 +277,15 @@ class Sub:
     inicio: float = 0.0
     fin: float = 0.0
     codificacion: str = ""
-    idioma: str = "?"          # es-419 / es / en / ?
+    idioma: str = "?"          # es-419 / es / en / it / ko... / ?
     valido: bool = False
     motivo: str = ""
     puntaje: float = 0.0
     texto: str | None = None   # contenido corregido a escribir en destino (None = copiar el original)
     nota: str = ""             # que se le corrigio
     cabecera: str = ""         # primeros dialogos (para detectar subs de otra serie/pelicula)
+    fuente: bool = False       # en ingles/italiano y cuadra con el video: sirve para traducir
+    tiempos_mal: bool = False  # fallo por duracion/desfase (se puede intentar rescatar)
 
 
 # marcas que dejan algunos generadores automaticos: "[cite: 2]", "[cite_start]"
@@ -269,7 +294,19 @@ RE_CITA = re.compile(r"[ \t]*\[cite(?:_start|_end)?(?::[^\]\n]*)?\]")
 
 def leer_texto(p: Path) -> tuple[str, str]:
     data = p.read_bytes()
-    for enc in ("utf-8-sig", "cp1252", "latin-1"):
+    try:
+        return data.decode("utf-8-sig"), "utf-8-sig"
+    except UnicodeDecodeError:
+        pass
+    # Mucho texto fuera de ASCII = alfabeto no latino en codificacion vieja (coreano
+    # EUC-KR, chino, ruso...). Leido como cp1252 sale basura que parece "ingles".
+    if sum(b >= 0x80 for b in data) > len(data) * 0.2:
+        for enc in ("cp949", "gb18030", "big5", "shift_jis", "cp1251", "cp1256"):
+            try:
+                return data.decode(enc), enc
+            except UnicodeDecodeError:
+                continue
+    for enc in ("cp1252", "latin-1"):
         try:
             return data.decode(enc), enc
         except UnicodeDecodeError:
@@ -321,13 +358,22 @@ def medir_sub(s: Sub, texto: str, ext: str) -> None:
 
 
 def detectar_idioma(texto: str) -> str:
+    letras = sum(c.isalpha() for c in texto)
+    for codigo, rx in ESCRITURAS:
+        if letras and len(re.findall(rx, texto)) > letras * 0.3:
+            return codigo
     palabras = re.findall(r"[a-z]+", sin_acentos(texto.lower()))
     if len(palabras) < 30:
         return "?"
     es = sum(w in PAL_ES for w in palabras)
     en = sum(w in PAL_EN for w in palabras)
-    if es <= en * 1.2:
-        return "en" if en > es else "?"
+    it = sum(w in PAL_IT for w in palabras)
+    if es <= max(en, it) * 1.2:
+        if en > es and en >= it:
+            return "en"
+        if it > es and it > en:
+            return "it"
+        return "?"
     espana = sum(w in PAL_ESPANA for w in palabras)
     latino = sum(w in PAL_LATINO for w in palabras)
     if espana >= 3 and espana > latino * 1.5:
@@ -343,6 +389,8 @@ def idioma_por_nombre(nombre: str) -> str | None:
         return "es"
     if re.search(r"(?<![a-z])(en|eng|english|ingles)(?![a-z])", n):
         return "en"
+    if re.search(r"(?<![a-z])(it|ita|italian|italiano)(?![a-z])", n):
+        return "it"
     if re.search(r"(?<![a-z])(es|spa|spanish|espanol)(?![a-z])", n):
         return "es-419?"
     return None
@@ -377,31 +425,46 @@ def revisar_titulo(s: Sub, info: Info) -> None:
             return
 
 
+def motivo_tiempos(s: Sub, duracion: float | None) -> str:
+    """"" si el sub cuadra con la duracion del video; si no, el motivo.
+    Marca s.tiempos_mal cuando el problema se puede intentar rescatar."""
+    if not duracion:
+        return ""
+    s.tiempos_mal = True
+    if s.fin > duracion + MARGEN_FINAL_SEG:
+        return f"termina en {fmt(s.fin)} pero el video dura {fmt(duracion)} (otra version/corte o FPS distinto)"
+    if s.fin < duracion * MIN_COBERTURA:
+        return f"termina en {fmt(s.fin)} y el video dura {fmt(duracion)} (incompleto o de otra version)"
+    if s.inicio > duracion * 0.25:
+        return f"el primer dialogo aparece hasta {fmt(s.inicio)} (desfase)"
+    s.tiempos_mal = False
+    minimo = max(20, int(MIN_DIALOGOS_POR_HORA * duracion / 3600 * 0.5))
+    if s.dialogos < minimo:
+        return f"solo {s.dialogos} dialogos para {fmt(duracion)} de video (incompleto o solo forzados)"
+    return ""
+
+
 def validar_contra_video(s: Sub, duracion: float | None) -> None:
     if s.motivo:
         return
-    if s.idioma == "en":
-        s.motivo = "el subtitulo esta en ingles"
+    if s.idioma in IDIOMAS_FUENTE:
+        tiempos = motivo_tiempos(s, duracion)
+        s.motivo = f"el subtitulo esta en {NOMBRE_IDIOMA[s.idioma]}"
+        if tiempos:
+            s.motivo += f" y {tiempos}"
+        else:
+            s.fuente = True
+            s.motivo += " (cuadra con el video: sirve para traducir)"
         return
     if s.idioma == "?":
         s.motivo = "no se pudo confirmar que este en espanol"
         return
-    if duracion:
-        if s.fin > duracion + MARGEN_FINAL_SEG:
-            s.motivo = (f"termina en {fmt(s.fin)} pero el video dura {fmt(duracion)} "
-                        "(otra version/corte o FPS distinto)")
-            return
-        if s.fin < duracion * MIN_COBERTURA:
-            s.motivo = (f"termina en {fmt(s.fin)} y el video dura {fmt(duracion)} "
-                        "(incompleto o de otra version)")
-            return
-        if s.inicio > duracion * 0.25:
-            s.motivo = f"el primer dialogo aparece hasta {fmt(s.inicio)} (desfase)"
-            return
-        minimo = max(20, int(MIN_DIALOGOS_POR_HORA * duracion / 3600 * 0.5))
-        if s.dialogos < minimo:
-            s.motivo = f"solo {s.dialogos} dialogos para {fmt(duracion)} de video (incompleto o solo forzados)"
-            return
+    if s.idioma not in ("es", "es-419"):
+        s.motivo = f"el subtitulo esta en {NOMBRE_IDIOMA.get(s.idioma, s.idioma)}"
+        return
+    s.motivo = motivo_tiempos(s, duracion)
+    if s.motivo:
+        return
     s.valido = True
     s.puntaje = (3 if s.idioma == "es-419" else 2) + min(s.dialogos, 3000) / 10000
     if s.ruta and s.ruta.suffix.lower() == ".srt":
@@ -533,9 +596,9 @@ def ffmpeg_lee(s: Sub, ff: str | None) -> None:
 
 def rescatar(s: Sub, video: Path, duracion: float | None) -> None:
     """Si un sub en espanol fallo por tiempos, intenta reacomodarlo o sincronizarlo."""
-    if s.valido or not duracion or not s.ruta or s.ruta.suffix.lower() != ".srt":
+    if s.valido or s.fuente or not duracion or not s.ruta or s.ruta.suffix.lower() != ".srt":
         return
-    if s.idioma not in ("es", "es-419") or not s.motivo.startswith(("termina en", "el primer dialogo")):
+    if s.idioma not in ("es", "es-419", *IDIOMAS_FUENTE) or not s.tiempos_mal:
         return
     base = s.texto if s.texto is not None else leer_texto(s.ruta)[0]
     nota_previa = s.nota + "; " if s.nota else ""
@@ -552,11 +615,14 @@ def rescatar(s: Sub, video: Path, duracion: float | None) -> None:
     for texto, nota in intentos():
         prueba = Sub(ruta=s.ruta, codificacion=s.codificacion)
         medir_sub(prueba, texto, ".srt")
+        if s.idioma in IDIOMAS_FUENTE:
+            prueba.idioma = s.idioma
         validar_contra_video(prueba, duracion)
-        if prueba.valido:
+        if prueba.valido or prueba.fuente:
             s.texto, s.nota = texto, nota_previa + nota
             s.dialogos, s.inicio, s.fin, s.idioma = prueba.dialogos, prueba.inicio, prueba.fin, prueba.idioma
-            s.valido, s.puntaje, s.motivo = True, prueba.puntaje - 0.3, ""   # prefiere uno que no requirio arreglo
+            s.valido, s.fuente, s.tiempos_mal = prueba.valido, prueba.fuente, False
+            s.puntaje, s.motivo = prueba.puntaje - 0.3, prueba.motivo   # prefiere uno que no requirio arreglo
             return
         fallidos.append(nota.split(" (")[0])
     if fallidos:
@@ -602,7 +668,7 @@ def subs_candidatos(video: Path, info: Info, subs_dir: list[Path], videos_dir: l
     out = []
     for sp in subs_dir:
         sn = norm(sp.stem)
-        if sn.startswith(vn):
+        if sn.startswith(vn) or norm(sp.parent.name) == vn:   # "Subs\<video>\2_English.srt" (RARBG)
             out.append(sp)
             continue
         si = analizar_nombre(sp.stem)
@@ -628,6 +694,70 @@ class Resultado:
     descartados: list[Sub] = field(default_factory=list)
     destino_video: Path | None = None
     destino_sub: Path | None = None
+    original: Sub | None = None        # fuente en ingles/italiano del sub traducido (se guarda tambien)
+    destino_original: Path | None = None
+
+
+def marcar_origen(s: Sub) -> None:
+    """Subs hechos por nosotros: siempre por debajo de cualquier sub humano en espanol.
+    Orden: humano latino > humano castellano > traducido de ingles > de italiano > Whisper."""
+    if not s.valido or not s.ruta:
+        return
+    nombre = s.ruta.name.lower()
+    extra = min(s.dialogos, 3000) / 10000
+    if MARCA_TRADUCIDO in nombre:
+        from traducir_subs import fuente_de
+        src = fuente_de(s.ruta)
+        idioma = (analizar_sub(src).idioma if src else None) or "?"
+        idioma = idioma if idioma in IDIOMAS_FUENTE else (idioma_por_nombre(src.name if src else nombre) or "en")
+        nota = f"traducido del {NOMBRE_IDIOMA.get(idioma, idioma)} (revisar: traduccion automatica)"
+        s.nota = f"{s.nota}; {nota}" if s.nota else nota
+        s.puntaje = (1.0 if idioma == "en" else 0.9) + extra
+    elif MARCA_GENERADO in nombre:
+        s.nota = f"{s.nota}; generado con Whisper" if s.nota else "generado con Whisper"
+        s.puntaje = 0.3 + extra
+
+
+def evaluar_candidatos(video: Path, info: Info, rutas_subs: list[Path], dur: float | None,
+                       internos: list[Sub], ff: str | None) -> tuple[Sub | None, list[Sub]]:
+    """Analiza y valida los subs de un video; devuelve (elegido, descartados)."""
+    evaluados = []
+    for sp in rutas_subs:
+        s = analizar_sub(sp)
+        rel = sp.stem[len(video.stem):] if norm(sp.stem).startswith(norm(video.stem)) else sp.stem
+        if MARCA_TRADUCIDO not in sp.name.lower():
+            pista_nombre = idioma_por_nombre(rel) or idioma_por_nombre(sp.parent.name if sp.parent != video.parent else "")
+            if pista_nombre == "en" and s.idioma not in ("es", "es-419"):
+                s.idioma = "en"
+            elif pista_nombre == "it" and s.idioma == "?":
+                s.idioma = "it"
+        if info:
+            revisar_titulo(s, info)
+        validar_contra_video(s, dur)
+        if s.idioma not in IDIOMAS_FUENTE:
+            rescatar(s, video, dur)
+        ffmpeg_lee(s, ff)
+        marcar_origen(s)
+        evaluados.append(s)
+    evaluados += internos
+    validos = [s for s in evaluados if s.valido]
+    # las fuentes en ingles/italiano solo se rescatan (ffsubsync tarda) si no hay nada mejor
+    if not validos and not any(s.fuente for s in evaluados):
+        for s in evaluados:
+            if s.idioma in IDIOMAS_FUENTE:
+                rescatar(s, video, dur)
+    validos = sorted(validos, key=lambda s: -s.puntaje)
+    elegido = validos[0] if validos else None
+    return elegido, [s for s in evaluados if s is not elegido]
+
+
+def original_de(elegido: Sub | None, descartados: list[Sub]) -> Sub | None:
+    """Si el elegido es una traduccion, el sub original (para guardarlo como .eng/.ita)."""
+    if not elegido or not elegido.ruta or MARCA_TRADUCIDO not in elegido.ruta.name.lower():
+        return None
+    from traducir_subs import fuente_de
+    src = fuente_de(elegido.ruta)
+    return next((s for s in descartados if s.ruta == src), None)
 
 
 def recolectar(entrada: Path) -> dict[Path, tuple[list[Path], list[Path]]]:
@@ -642,8 +772,10 @@ def recolectar(entrada: Path) -> dict[Path, tuple[list[Path], list[Path]]]:
         if "sample" in p.stem.lower() and ext in VIDEO_EXT:
             continue
         carpeta = p.parent
-        if ext in SUB_EXT and carpeta.name.lower() in ("subs", "subtitles", "subtitulos", "sub"):
+        if ext in SUB_EXT and carpeta.name.lower() in CARPETAS_SUBS:
             carpeta = carpeta.parent
+        elif ext in SUB_EXT and carpeta.parent.name.lower() in CARPETAS_SUBS:   # Subs\<video>\x.srt
+            carpeta = carpeta.parent.parent
         v, s = grupos.setdefault(carpeta, ([], []))
         (v if ext in VIDEO_EXT else s).append(p)
     return grupos
@@ -670,24 +802,9 @@ def procesar(entrada: Path, aplicar: bool, ff: str | None) -> list[Resultado]:
             info = analizar_nombre(v.stem)
             dur, internos = probar_video(ff, v)
             r = Resultado(v, info, dur)
-            evaluados = []
-            for sp in subs_candidatos(v, info, subs, videos):
-                s = analizar_sub(sp)
-                pista_nombre = idioma_por_nombre(sp.stem[len(v.stem):] if norm(sp.stem).startswith(norm(v.stem)) else sp.stem)
-                if pista_nombre == "en" and s.idioma != "es" and s.idioma != "es-419":
-                    s.idioma = "en"
-                revisar_titulo(s, info)
-                validar_contra_video(s, dur)
-                rescatar(s, v, dur)
-                ffmpeg_lee(s, ff)
-                if MARCA_GENERADO in sp.name.lower():
-                    s.nota = f"{s.nota}; generado con Whisper" if s.nota else "generado con Whisper"
-                    s.puntaje = max(0.0, s.puntaje - 0.6)   # un sub humano siempre le gana
-                evaluados.append(s)
-            evaluados += internos
-            validos = sorted([s for s in evaluados if s.valido], key=lambda s: -s.puntaje)
-            r.elegido = validos[0] if validos else None
-            r.descartados = [s for s in evaluados if s is not r.elegido]
+            r.elegido, r.descartados = evaluar_candidatos(v, info, subs_candidatos(v, info, subs, videos),
+                                                          dur, internos, ff)
+            r.original = original_de(r.elegido, r.descartados)
             resultados.append(r)
 
     series = titulo_serie_comun(resultados)
@@ -698,6 +815,8 @@ def procesar(entrada: Path, aplicar: bool, ff: str | None) -> list[Resultado]:
         r.destino_video = destino_raiz / rel / f"{base}{r.video.suffix.lower()}"
         if r.elegido.ruta:
             r.destino_sub = destino_raiz / rel / f"{base}.{SUFIJO_IDIOMA}{r.elegido.ruta.suffix.lower()}"
+        if r.original:
+            r.destino_original = destino_raiz / rel / f"{base}.{SUFIJO_FUENTE[r.original.idioma]}{r.original.ruta.suffix.lower()}"
 
     if aplicar:
         for r in resultados:
@@ -708,21 +827,26 @@ def procesar(entrada: Path, aplicar: bool, ff: str | None) -> list[Resultado]:
 
 def mover(r: Resultado) -> None:
     r.destino_video.parent.mkdir(parents=True, exist_ok=True)
-    if r.destino_video.exists():
-        raise FileExistsError(f"Ya existe {r.destino_video}; no se sobrescribe.")
+    for d in (r.destino_video, r.destino_sub, r.destino_original):
+        if d and d.exists():
+            raise FileExistsError(f"Ya existe {d}; no se sobrescribe.")
     shutil.move(str(r.video), str(r.destino_video))
     if r.destino_sub and r.elegido and r.elegido.ruta:
-        if r.destino_sub.exists():
-            raise FileExistsError(f"Ya existe {r.destino_sub}; no se sobrescribe.")
-        texto, enc = leer_texto(r.elegido.ruta)
-        if r.elegido.texto is not None:  # corregido (marcas, tiempos o sincronia)
-            r.destino_sub.write_text(r.elegido.texto, encoding="utf-8")
-            r.elegido.ruta.unlink()
-        elif enc in ("utf-8-sig", "utf-8"):
-            shutil.move(str(r.elegido.ruta), str(r.destino_sub))
-        else:  # Jellyfin necesita UTF-8 para mostrar bien acentos y enes
-            r.destino_sub.write_text(texto, encoding="utf-8")
-            r.elegido.ruta.unlink()
+        mover_sub(r.elegido, r.destino_sub)
+    if r.destino_original and r.original:
+        mover_sub(r.original, r.destino_original)
+
+
+def mover_sub(s: Sub, destino: Path) -> None:
+    texto, enc = leer_texto(s.ruta)
+    if s.texto is not None:  # corregido (marcas, tiempos o sincronia)
+        destino.write_text(s.texto, encoding="utf-8")
+        s.ruta.unlink()
+    elif enc in ("utf-8-sig", "utf-8"):
+        shutil.move(str(s.ruta), str(destino))
+    else:  # Jellyfin necesita UTF-8 para mostrar bien acentos y enes
+        destino.write_text(texto, encoding="utf-8")
+        s.ruta.unlink()
 
 
 def reporte(entrada: Path, resultados: list[Resultado], aplicar: bool) -> str:
@@ -740,11 +864,14 @@ def reporte(entrada: Path, resultados: list[Resultado], aplicar: bool) -> str:
             L.append(f"[OK] {r.video.name}")
             L.append(f"     sub: {origen} ({e.idioma}{', ' + e.codificacion if e.codificacion else ''})")
             if e.nota:
-                etiqueta = "generado" if "generado con Whisper" in e.nota else "corregido"
+                etiqueta = ("generado" if "generado con Whisper" in e.nota else
+                            "traducido" if "traducido del" in e.nota else "corregido")
                 L.append(f"     {etiqueta}: {e.nota}")
             L.append(f"     ->  {r.destino_video.relative_to(entrada)}")
             if r.destino_sub:
                 L.append(f"     ->  {r.destino_sub.relative_to(entrada)}")
+            if r.destino_original:
+                L.append(f"     ->  {r.destino_original.relative_to(entrada)}  (original)")
         L.append("")
     if faltan:
         L.append("== SIN SUBTITULOS VALIDOS ==")
@@ -759,9 +886,10 @@ def reporte(entrada: Path, resultados: list[Resultado], aplicar: bool) -> str:
 
 # --------------------------------------------------------------------------- descarga opcional
 
-def descargar(resultados: list[Resultado], rutas: dict[str, str]) -> None:
-    """Baja varios subtitulos en espanol (latino primero) para los videos sin sub valido.
-    Se guardan todos junto al video y la validacion posterior elige el que cuadre."""
+def descargar(resultados: list[Resultado], rutas: dict[str, str], idioma: str = "es") -> None:
+    """Baja varios subtitulos (espanol: latino primero; o "en"/"it" como fuente para
+    traducir) para los videos sin sub valido. Se guardan todos junto al video y la
+    validacion posterior elige el que cuadre."""
     try:
         from babelfish import Language
         from subliminal import compute_score, download_subtitles, list_subtitles, region, scan_video
@@ -778,11 +906,15 @@ def descargar(resultados: list[Resultado], rutas: dict[str, str]) -> None:
         configs["opensubtitlescom"] = {"username": usuario, "password": clave}
     else:
         print("AVISO: sin OPENSUBTITLES_USUARIO/CLAVE en RUTAS.txt; se omite OpenSubtitles.com")
-    idiomas = {Language("spa", "MX"), Language("spa")}
+    idiomas = {"es": {Language("spa", "MX"), Language("spa")}, "en": {Language("eng")},
+               "it": {Language("ita")}}[idioma]
+    maximo = DESCARGAS_POR_VIDEO if idioma == "es" else DESCARGAS_FUENTE
 
     for r in resultados:
         if r.elegido:
             continue
+        if idioma != "es" and any(s.fuente for s in r.descartados):
+            continue   # ya hay uno en ingles/italiano que sirve
         try:
             vid = scan_video(str(r.video))
             encontrados = list_subtitles({vid}, idiomas, providers=proveedores, provider_configs=configs).get(vid, [])
@@ -791,7 +923,7 @@ def descargar(resultados: list[Resultado], rutas: dict[str, str]) -> None:
                 continue
             # latino primero, luego por puntaje de coincidencia con el video
             encontrados.sort(key=lambda s: (s.language.country is not None, compute_score(s, vid)), reverse=True)
-            elegidos = encontrados[:DESCARGAS_POR_VIDEO]
+            elegidos = encontrados[:maximo]
             download_subtitles(elegidos, providers=proveedores, provider_configs=configs)
             existentes = {hashlib.sha1(p.read_bytes()).digest() for p in r.video.parent.iterdir()
                           if p.suffix.lower() in SUB_EXT}
@@ -803,7 +935,7 @@ def descargar(resultados: list[Resultado], rutas: dict[str, str]) -> None:
                 if hashlib.sha1(s.content).digest() in existentes:
                     continue   # identico a uno que ya esta
                 ext = "." + (getattr(s, "subtitle_format", None) or "srt")
-                tag = "es-MX" if s.language.country else "es"
+                tag = ("es-MX" if s.language.country else "es") if idioma == "es" else idioma
                 destino = r.video.with_name(f"{r.video.stem}.{s.provider_name}{n}.{tag}{ext}")
                 if destino.exists():
                     continue
@@ -814,6 +946,96 @@ def descargar(resultados: list[Resultado], rutas: dict[str, str]) -> None:
             print(f"Descargados {guardados} de {len(encontrados)} encontrados{aviso}: {r.video.name}")
         except Exception as e:  # noqa: BLE001 - un fallo de red no debe detener el lote
             print(f"Error descargando {r.video.name}: {e}")
+
+
+# --------------------------------------------------------------------------- traducir opcional
+
+FORMATOS_TEXTO = {"subrip", "ass", "ssa", "mov_text", "webvtt", "text"}
+
+
+def extraer_internos(video: Path, ff: str | None, rutas: dict[str, str]) -> int:
+    """Saca a .srt las pistas internas de texto en ingles/italiano (no forzadas) para
+    poder traducirlas: "<video>.interno<N>.<en|it>.srt". Devuelve cuantas extrajo."""
+    ffmpeg = ffmpeg_bin(rutas)
+    if not ff or not ffmpeg:
+        return 0
+    try:
+        r = subprocess.run([ff, "-v", "error", "-select_streams", "s", "-print_format", "json", "-show_streams",
+                            str(video)], capture_output=True, text=True, timeout=60, encoding="utf-8", errors="replace")
+        streams = json.loads(r.stdout or "{}").get("streams", [])
+    except (OSError, subprocess.TimeoutExpired, json.JSONDecodeError):
+        return 0
+    n = 0
+    for st in streams:
+        tags = {k.lower(): v for k, v in (st.get("tags") or {}).items()}
+        lang = {"eng": "en", "en": "en", "ita": "it", "it": "it"}.get((tags.get("language") or "").lower())
+        titulo = sin_acentos((tags.get("title") or "").lower())
+        forzado = (st.get("disposition") or {}).get("forced") or "forced" in titulo
+        if not lang or forzado or st.get("codec_name") not in FORMATOS_TEXTO:
+            continue
+        destino = video.with_name(f"{video.stem}.interno{st.get('index')}.{lang}.srt")
+        if destino.exists():
+            continue
+        try:
+            subprocess.run([ffmpeg, "-v", "error", "-n", "-i", str(video), "-map", f"0:{st.get('index')}",
+                            "-c:s", "srt", str(destino)], capture_output=True, timeout=600)
+        except (OSError, subprocess.TimeoutExpired):
+            continue
+        n += destino.exists()
+    return n
+
+
+def traducir(resultados: list[Resultado]) -> int:
+    """Para cada video sin sub en espanol: traduce el mejor sub en ingles (o, si no hay,
+    italiano) que cuadre con el video. Escribe "<original>.traducido.es.srt" junto al
+    original; la pasada siguiente lo valida como cualquier otro. Devuelve cuantos tradujo."""
+    import traducir_subs
+    hechos = 0
+    for r in resultados:
+        if r.elegido:
+            continue
+        fuentes = [s for s in r.descartados if s.fuente and s.ruta]
+        fuentes.sort(key=lambda s: (IDIOMAS_FUENTE.index(s.idioma), s.texto is not None, -s.dialogos))
+        for s in fuentes:
+            destino = traducir_subs.nombre_traducido(s.ruta)
+            if destino.exists():
+                continue   # ya se tradujo antes y no sirvio (si sirviera, el video ya tendria sub)
+            falta = traducir_subs.disponible(s.idioma)
+            if falta:
+                print(f"No se puede traducir {r.video.name}: {falta}")
+                break
+            print(f"Traduciendo del {NOMBRE_IDIOMA[s.idioma]}: {s.ruta.name} ...", flush=True)
+            texto = s.texto if s.texto is not None else leer_texto(s.ruta)[0]
+            try:
+                salida, n = traducir_subs.traducir_srt(texto, s.idioma)
+            except Exception as e:  # noqa: BLE001 - un sub roto no detiene el lote
+                print(f"     error traduciendo: {e}")
+                continue
+            destino.write_text(salida, encoding="utf-8")
+            print(f"     OK: {destino.name} ({n} dialogos)")
+            hechos += 1
+            break
+    return hechos
+
+
+def paso_traducir(procesar_fn, rutas: dict[str, str], ff: str | None, bajar: bool) -> None:
+    """Cadena completa para los que no tienen sub en espanol:
+    pistas internas -> fuentes ya presentes -> (bajar ingles) -> (bajar italiano) -> traducir."""
+    res = procesar_fn()
+    pendientes = [r for r in res if not r.elegido]
+    if not pendientes:
+        return
+    if sum(extraer_internos(r.video, ff, rutas) for r in pendientes):
+        res = procesar_fn()
+    if bajar:
+        for idioma in IDIOMAS_FUENTE:
+            faltan = [r for r in res if not r.elegido and not any(s.fuente for s in r.descartados)]
+            if not faltan:
+                break
+            print(f"Buscando subtitulos en {NOMBRE_IDIOMA[idioma]} para {len(faltan)} video(s)...")
+            descargar(faltan, rutas, idioma)
+            res = procesar_fn()
+    traducir(res)
 
 
 # --------------------------------------------------------------------------- generar opcional
@@ -849,6 +1071,8 @@ def main() -> int:
     ap.add_argument("--carpeta", help="Carpeta a revisar (por defecto CARPETA_ENTRADA de RUTAS.txt)")
     ap.add_argument("--aplicar", action="store_true", help="Mover/renombrar de verdad (sin esto solo simula)")
     ap.add_argument("--descargar", action="store_true", help="Intentar descargar subs faltantes y re-evaluar")
+    ap.add_argument("--traducir", action="store_true",
+                    help="Sin sub en espanol: traducir uno en ingles/italiano que cuadre (con --descargar, tambien los baja)")
     ap.add_argument("--generar", action="store_true",
                     help="Generar con Whisper (GPU) los que sigan sin subtitulo y re-evaluar")
     ap.add_argument("--json", action="store_true", help="Salida JSON para el agente")
@@ -869,6 +1093,8 @@ def main() -> int:
 
     if a.descargar:
         descargar(procesar(entrada, False, ff), rutas)
+    if a.traducir:
+        paso_traducir(lambda: procesar(entrada, False, ff), rutas, ff, a.descargar)
     if a.generar:
         generar(procesar(entrada, False, ff), rutas, ff)
     resultados = procesar(entrada, a.aplicar, ff)
@@ -890,6 +1116,8 @@ def main() -> int:
             "idioma": r.elegido.idioma if r.elegido else None,
             "destino_video": str(r.destino_video) if r.destino_video else None,
             "destino_sub": str(r.destino_sub) if r.destino_sub else None,
+            "nota": r.elegido.nota if r.elegido else None,
+            "destino_original": str(r.destino_original) if r.destino_original else None,
             "descartados": [{"sub": str(s.ruta) if s.ruta else s.pista, "motivo": s.motivo} for s in r.descartados],
         } for r in resultados], ensure_ascii=False, indent=2))
     else:

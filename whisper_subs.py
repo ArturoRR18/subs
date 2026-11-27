@@ -11,8 +11,8 @@ Flujo por video:
   1. Elige la pista de audio (prefiere una etiquetada en espanol).
   2. La extrae a WAV 16 kHz mono con ffmpeg.
   3. Transcribe con faster-whisper (large-v3-turbo por defecto).
-  4. Si el audio no es espanol pero es ingles, traduce cada linea con el modelo
-     Opus-MT/Argos (CTranslate2) que vive en modelos/traductor-en-es.
+  4. Si el audio no es espanol pero es ingles o italiano, traduce cada linea con
+     traducir_subs.py (Opus-MT/Argos en CTranslate2, modelos en modelos/).
   5. Escribe un .srt en UTF-8 con los tiempos de Whisper.
 """
 from __future__ import annotations
@@ -25,20 +25,18 @@ import subprocess
 import sys
 import tempfile
 import wave
-import zipfile
 from pathlib import Path
 
 import numpy as np
 
 RAIZ = Path(__file__).resolve().parent
 MODELOS = RAIZ / "modelos"
-TRADUCTOR_ZIP = MODELOS / "translate-en_es-1_0.argosmodel"
-TRADUCTOR_DIR = MODELOS / "traductor-en-es"
-TRADUCTOR_URL = "https://argos-net.com/v1/translate-en_es-1_0.argosmodel"
 
 MARCA = ".whisper"              # queda en el nombre: <video>.whisper.es.srt
 MODELO_DEF = "large-v3-turbo"   # ~1-2 min por episodio en una GTX 1060 6GB
-IDIOMAS_TRADUCIBLES = {"en"}
+import traducir_subs  # noqa: E402
+
+IDIOMAS_TRADUCIBLES = set(traducir_subs.CADENAS)   # en, it
 
 MAX_CARACTERES_LINEA = 42       # se parte en 2 lineas como los subs comerciales
 
@@ -120,56 +118,6 @@ def extraer_wav(video: Path, pista: dict | None, ffmpeg: str, destino: Path) -> 
     except (OSError, subprocess.TimeoutExpired):
         return False
     return r.returncode == 0 and destino.exists() and destino.stat().st_size > 1024
-
-
-# --------------------------------------------------------------------------- traductor
-
-def preparar_traductor() -> Path | None:
-    """Descomprime el .argosmodel la primera vez. None si no esta descargado."""
-    if (TRADUCTOR_DIR / "sentencepiece.model").exists() and (TRADUCTOR_DIR / "model").is_dir():
-        return TRADUCTOR_DIR
-    if not TRADUCTOR_ZIP.exists():
-        return None
-    TRADUCTOR_DIR.mkdir(parents=True, exist_ok=True)
-    with zipfile.ZipFile(TRADUCTOR_ZIP) as z:
-        z.extractall(TRADUCTOR_DIR)
-    # el zip trae todo dentro de una carpeta: translate-en_es-1_0/...
-    if not (TRADUCTOR_DIR / "sentencepiece.model").exists():
-        for sp in TRADUCTOR_DIR.rglob("sentencepiece.model"):
-            interior = sp.parent
-            for item in interior.iterdir():
-                item.rename(TRADUCTOR_DIR / item.name)
-            interior.rmdir()
-            break
-    if (TRADUCTOR_DIR / "sentencepiece.model").exists() and (TRADUCTOR_DIR / "model").is_dir():
-        return TRADUCTOR_DIR
-    return None
-
-
-class Traductor:
-    """Opus-MT ingles->espanol en CTranslate2 (el mismo modelo que usa Argos Translate).
-    Corre en CPU para no pelear por la VRAM con Whisper."""
-
-    def __init__(self, carpeta: Path):
-        import ctranslate2
-        import sentencepiece
-        self.sp = sentencepiece.SentencePieceProcessor()
-        self.sp.Load(str(carpeta / "sentencepiece.model"))
-        self.motor = ctranslate2.Translator(str(carpeta / "model"), device="cpu", compute_type="int8")
-
-    def __call__(self, textos: list[str]) -> list[str]:
-        salida: list[str] = []
-        for i in range(0, len(textos), 32):
-            lote = textos[i:i + 32]
-            tokens = [self.sp.EncodeAsPieces(t) for t in lote]
-            res = self.motor.translate_batch(tokens, beam_size=4, replace_unknowns=True,
-                                             max_batch_size=32)
-            for original, r in zip(lote, res):
-                try:
-                    salida.append(self.sp.DecodePieces(r.hypotheses[0]).strip() or original)
-                except (IndexError, TypeError):
-                    salida.append(original)
-        return salida
 
 
 def leer_wav(p: Path) -> "np.ndarray":
@@ -340,13 +288,11 @@ def generar(video: Path, ff: str | None, ffmpeg: str | None, modelo: str = MODEL
                 return None, f"el audio esta en {idioma} y la traduccion esta desactivada"
             if idioma not in IDIOMAS_TRADUCIBLES:
                 return None, f"el audio esta en {idioma}; solo se traduce desde {'/'.join(IDIOMAS_TRADUCIBLES)}"
-            carpeta = preparar_traductor()
-            if not carpeta:
-                return None, (f"falta el modelo traductor: baja {TRADUCTOR_URL} "
-                              f"a {TRADUCTOR_ZIP.relative_to(RAIZ)}")
+            falta = traducir_subs.disponible(idioma)
+            if falta:
+                return None, falta
             avisar(f"  traduciendo {len(bloques)} lineas de {idioma} a espanol...")
-            tr = Traductor(carpeta)
-            textos = tr([b[2] for b in bloques])
+            textos = traducir_subs.traducir_textos([b[2] for b in bloques], idioma)
             bloques = [(b[0], b[1], t) for b, t in zip(bloques, textos)]
             nota = f"generado con Whisper ({modelo}) y traducido {idioma}->es"
 

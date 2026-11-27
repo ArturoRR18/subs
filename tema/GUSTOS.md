@@ -44,6 +44,9 @@ repo/mod, y dónde quedó en `custom.css`.
   menos el póster; el póster sube con `.cardBox`. Verificado en vivo: x=63 desde
   el primer instante. (2026-11-26)
 
+- De Nebula: franja oscura bajo el título en la ficha (degradado de `.detailRibbon`
+  que termina en negro). Arreglo: fondo transparente en la barra. (2026-11-26)
+
 ## Notas para probar
 - Al medir en el navegador, recarga la página de verdad (no solo cambiar el `#`):
   si no, sigue con el CSS viejo.

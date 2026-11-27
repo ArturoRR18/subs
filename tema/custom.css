@@ -52,3 +52,10 @@
   -webkit-mask-image: var(--slideshow-bottom-fade), linear-gradient(to right, black 60%, transparent 85%) !important;
   mask-image: var(--slideshow-bottom-fade), linear-gradient(to right, black 60%, transparent 85%) !important;
 }
+
+/* Ficha: quita la franja oscura bajo el titulo. Nebula pone en la barra del titulo
+   (.detailRibbon / .detailPagePrimaryContainer) un degradado que termina en negro
+   solido justo en su borde inferior; debajo el fondo es mas claro -> se veia una linea.
+   El fondo general (.backgroundContainer) ya oscurece lo suficiente para leer. */
+.layout-desktop .itemDetailPage .detailRibbon,
+.layout-desktop .itemDetailPage .detailPagePrimaryContainer { background: transparent !important; }

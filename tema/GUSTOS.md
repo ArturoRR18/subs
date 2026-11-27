@@ -12,6 +12,10 @@ repo/mod, y dónde quedó en `custom.css`.
 - **tema-v1** (git tag, 2026-11-26): Nebula + póster a la izquierda sin salto +
   logos + pop-up + mezcla Media Bar angosta. Es el "último tema" que se recarga con
   `py tema_jellyfin.py --aplicar`.
+- **tema-v2** (git tag, 2026-11-26): v1 + sin franja oscura bajo el título + botón
+  ▶ en el póster (solo al pasar el cursor). Es el "último tema": `--aplicar` (CSS)
+  y `--js` (botón). El botón trae su propio estilo y sigue activo aunque pruebes
+  otro CSS; para quitarlo, desactiva `tema/poster-play.js` en JavaScript Injector.
 
 ## Me gusta
 - De Nebula: cómo se ven los menús → se conserva tal cual (`@import`).

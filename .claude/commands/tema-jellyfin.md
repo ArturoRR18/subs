@@ -46,7 +46,7 @@ recursivamente los que tengan dentro) · `--aplicar [archivo]` (por defecto
      gusta. `custom.css` (en git) es siempre "mi tema"; no lo toques por eso. Si te
      pido ver lo que tengo puesto, `--leer` (queda en `actual.css`) y `--fuentes`.
    - **"recarga mi tema" / "recarga el último CSS" / "vuelve a mi tema":**
-     `py tema_jellyfin.py --aplicar` (sube `custom.css`; el CSS de prueba queda en
+     `py tema_jellyfin.py --aplicar` y `--js` (sube `custom.css` y el botón del póster; el CSS de prueba queda en
      `respaldos\`). Luego agrega a `custom.css` lo que me gustó del de prueba.
 6. Cada vez que el tema quede bien: commit de `custom.css` y `GUSTOS.md`.
 

@@ -44,6 +44,13 @@ Para películas que YA están en la biblioteca de Jellyfin (`BIBLIOTECA_PELICULA
   eligieron. Las carpetas con varios videos (sagas, partes) se revisan a mano.
 - Ojo: Jellyfin trata la ruta nueva como otro elemento (se pierde el "visto").
 
+## Comando: "tema jellyfin"
+Cuando yo escriba **"tema jellyfin"** (o `/tema-jellyfin`), sigue
+`.claude/commands/tema-jellyfin.md` en esta misma conversación (no en un subagente:
+es un ida y vuelta conmigo). Junta lo que me gusta de varios temas/mods CSS en
+`tema\custom.css`, anota mis decisiones en `tema\GUSTOS.md` y lo sube a Jellyfin
+con `py tema_jellyfin.py --aplicar` (respalda antes; `--restaurar` vuelve atrás).
+
 ## Reglas del proceso
 - **Idioma:** prioridad `es-419` (latino) > `es` (castellano). Inglés u otro idioma = no válido.
 - **Válido contra el video** (lo compara con la duración de `ffprobe`):

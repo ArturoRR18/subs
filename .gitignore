@@ -24,3 +24,8 @@ SIN_SUBTITULOS.txt
 
 # Modelos descargados (pesan cientos de MB)
 modelos/
+
+# Tema de Jellyfin: solo custom.css y GUSTOS.md van en git
+tema/actual.css
+tema/fuentes/
+tema/respaldos/

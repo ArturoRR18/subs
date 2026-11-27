@@ -1,0 +1,123 @@
+@import url('https://cdn.jsdelivr.net/gh/nemesbak/jellyfin-nebula@main/opciones/cabecera-minima.css');
+@import url('https://cdn.jsdelivr.net/gh/nemesbak/jellyfin-nebula@main/opciones/titulo-en-texto.css');
+@import url('https://cdn.jsdelivr.net/gh/nemesbak/jellyfin-nebula@main/opciones/tarjetas-texto-centrado.css');
+@import url('https://cdn.jsdelivr.net/gh/nemesbak/jellyfin-nebula@main/opciones/acento-blanco.css');
+@import url("https://cdn.jsdelivr.net/npm/@zakariaa/jellyflix@latest/dist/netflix.css");
+/* ===== Ajustes estilo Netflix para Jellyfin =====
+   Pegar DEBAJO del @import de JellyFlix en:
+   Panel de control > General > Codigo CSS personalizado               */
+
+:root {
+  --nf-rojo: #e50914;
+  --nf-fondo: #141414;
+  --nf-texto: #e5e5e5;
+}
+
+/* Fondo negro Netflix (solo el body, para no tapar las imagenes de fondo) */
+body { background: var(--nf-fondo) !important; color: var(--nf-texto); }
+
+/* Tipografia */
+body, .emby-button, .sectionTitle, h1, h2, h3 {
+  font-family: "Netflix Sans", "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+}
+
+/* Header transparente con degradado (como Netflix) */
+.skinHeader {
+  background: linear-gradient(to bottom, rgba(0,0,0,.85) 0%, rgba(0,0,0,0) 100%) !important;
+  backdrop-filter: none !important;
+  box-shadow: none !important;
+}
+.skinHeader.semiTransparent { background: rgba(20,20,20,.95) !important; }
+
+/* Pestanas superiores (Inicio / Favoritos) */
+.headerTabs .emby-tab-button {
+  color: #b3b3b3 !important;
+  font-weight: 500;
+  text-transform: none;
+}
+.headerTabs .emby-tab-button-active,
+.headerTabs .emby-tab-button:hover {
+  color: #fff !important;
+  font-weight: 700;
+}
+.emby-tab-button-active::after,
+.emby-tabs-slider .tab-indicator { background: var(--nf-rojo) !important; }
+
+/* Titulos de seccion ("Seguir viendo", "Mis medios") */
+.sectionTitle {
+  font-size: 1.4em !important;
+  font-weight: 700 !important;
+  color: #fff !important;
+  margin-bottom: .4em !important;
+}
+
+/* Tarjetas: esquinas suaves y zoom al pasar el mouse */
+.cardBox { transition: transform .3s ease, z-index 0s .3s; }
+.cardScalable, .cardImageContainer { border-radius: 6px !important; overflow: hidden; }
+@media (hover: hover) {
+  .card:hover .cardBox {
+    transform: scale(1.12);
+    z-index: 10;
+    transition: transform .3s ease;
+  }
+  .card:hover .cardScalable { box-shadow: 0 10px 30px rgba(0,0,0,.8); }
+}
+.homePage .itemsContainer { overflow: visible !important; padding: 1.2em 0; }
+.cardOverlayContainer { border-radius: 6px; }
+
+/* Tarjetas de "Mis medios" grandes con texto encima */
+.section0 .cardText { font-weight: 700; font-size: 1.1em; }
+
+/* Barra de progreso roja (Seguir viendo) */
+.itemProgressBarForeground { background: var(--nf-rojo) !important; }
+.itemProgressBar { background: rgba(255,255,255,.3) !important; height: 4px !important; }
+
+/* Indicadores (visto / contador) en rojo */
+.playedIndicator, .countIndicator { background: var(--nf-rojo) !important; }
+
+/* Botones principales: Reproducir blanco, resto gris translucido */
+.btnPlay, .detailButton.btnPlay, .button-submit {
+  background: #fff !important;
+  color: #000 !important;
+  border-radius: 4px !important;
+  font-weight: 700;
+}
+.detailButton:not(.btnPlay) {
+  background: rgba(109,109,110,.7) !important;
+  color: #fff !important;
+  border-radius: 4px !important;
+}
+.btnPlay:hover, .detailButton:hover { opacity: .8; }
+
+/* ===== Pagina de detalle (pelicula/serie) ===== */
+/* Deja ver la imagen de fondo */
+.itemDetailPage, .itemDetailPage .detailPageWrapperContainer,
+.itemDetailPage .detailPageContent, .itemDetailPage .detailPagePrimaryContainer {
+  background: transparent !important;
+}
+.backdropContainer, .backgroundContainer { display: block !important; opacity: 1 !important; }
+.backgroundContainer.withBackdrop { background: rgba(20,20,20,.55) !important; }
+
+/* Datos (anio, duracion, calificacion) y botones sin recortes */
+.itemDetailPage .detailRibbon, .itemDetailPage .infoWrapper,
+.itemDetailPage .itemMiscInfo, .itemDetailPage .mainDetailButtons {
+  overflow: visible !important;
+  height: auto !important;
+  max-height: none !important;
+  flex-wrap: wrap !important;
+}
+.itemDetailPage .mainDetailButtons { margin-top: .6em !important; gap: .4em; }
+.itemDetailPage .itemName.infoText { white-space: normal !important; }
+
+/* Poster de la pelicula/serie visible */
+.itemDetailPage .detailImageContainer { display: block !important; visibility: visible !important; }
+.itemDetailPage .detailImageContainer .card { border-radius: 6px; overflow: hidden; }
+
+/* Scrollbar discreta */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: #444; border-radius: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* Ocultar el titulo "Mis medios" (opcional, quita el comentario) */
+/* .section0 .sectionTitle { display: none; } */
+
